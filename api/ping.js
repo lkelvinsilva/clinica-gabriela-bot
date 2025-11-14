@@ -8,3 +8,4 @@ export default function handler(req, res) {
   return res.status(200).json({ ok: true });
 }
 
+console.log("TOKEN SALVO NA VERCEL:", process.env.PING_TOKEN);
