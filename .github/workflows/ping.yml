@@ -12,6 +12,6 @@ jobs:
     steps:
       - name: Ping Vercel
         run: |
-          curl -s "https://clinica-gabriela-bot.vercel.app/api/ping?ping=${{ secrets.PING_TOKEN }}"
+          curl -s "https://clinica-gabriela-bot.vercel.app/api/ping?token=${{ secrets.PING_TOKEN }}"
 
 
