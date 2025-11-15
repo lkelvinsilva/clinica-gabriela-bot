@@ -9,7 +9,7 @@ function getAuth() {
   );
 }
 
-export async function isTimeslotFree(startISO, endISO) {
+export async function isTimeSlotFree(startISO, endISO) {
   const auth = getAuth();
   const calendar = google.calendar({ version: "v3", auth });
 
