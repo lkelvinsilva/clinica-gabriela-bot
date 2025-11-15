@@ -125,7 +125,8 @@ export default async function handler(req, res) {
       const startISO = iso;
       const endISO = new Date(new Date(iso).getTime() + 60 * 60000).toISOString();
 
-      const free = await isTimeslotFree(startISO, endISO);
+      const free = await isTimeSlotFree(startISO, endISO);
+
 
       if (!free) {
         await sendMessage(from, "❌ Esse horário está ocupado. Envie outro por favor.");
