@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getUserState, setUserState, isDuplicateMessage } from "../../utils/state.js";
+import { getUserState, setUserState, isDuplicateMessage } from "../utils/state.js";
 import { isTimeSlotFree, createEvent } from "../utils/googleCalendar.js";
 import { appendRow } from "../utils/googleSheets.js";
 
