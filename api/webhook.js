@@ -1,12 +1,12 @@
 import axios from "axios";
 import { getUserState, setUserState, isDuplicateMessage } from "../utils/state.js";
-import { isTimeSlotFree, createEvent } from "../utils/googleCalendar.js";
+import { isTimeslotFree as isTimeSlotFree, createEvent } from "../utils/googleCalendar.js";
 import { appendRow } from "../utils/googleSheets.js";
-
 
 // ---------------------- PARSE DE DATA ----------------------
 function parseDateTime(text) {
-  const m = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(\d{1,2}):(\d{2})/);
+  // Aceita formatos: "15/12/2025 14:00" ou "15/12/2025 às 14:00"
+  const m = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(?:às\s*)?(\d{1,2}):(\d{2})/i);
   if (!m) return null;
 
   const [_, d, mo, y, hh, mm] = m;
@@ -18,20 +18,25 @@ function parseDateTime(text) {
 
 // ---------------------- ENVIO DE MENSAGEM ----------------------
 async function sendMessage(to, text) {
-  await axios.post(
-    `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
-    {
-      messaging_product: "whatsapp",
-      to,
-      text: { body: text },
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        "Content-Type": "application/json",
+  try {
+    await axios.post(
+      `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: "whatsapp",
+        to,
+        text: { body: text },
       },
-    }
-  );
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 10000,
+      }
+    );
+  } catch (err) {
+    console.error("Erro ao enviar mensagem:", err?.response?.data || err);
+  }
 }
 
 // ---------------------- HANDLER ----------------------
@@ -62,19 +67,23 @@ export default async function handler(req, res) {
   try {
     const entry = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
-    if (!entry) return res.sendStatus(200);
+    if (!entry) {
+      return res.sendStatus(200);
+    }
 
     const msgId = entry.id;
     const from = entry.from;
     const text = (entry.text?.body || "").trim();
 
-    // PREVENÇÃO DE DUPLICATAS (fundamental)
+    if (!msgId || !from) return res.sendStatus(200);
+
+    // PREVENÇÃO DE DUPLICATAS
     if (await isDuplicateMessage(msgId)) {
       console.log("Mensagem duplicada ignorada:", msgId);
       return res.sendStatus(200);
     }
 
-    // Carregar ESTADO REAL do usuário
+    // Carregar estado do usuário
     const state = await getUserState(from);
     const lower = text.toLowerCase();
 
@@ -96,8 +105,10 @@ export default async function handler(req, res) {
 
       if (lower === "1" || lower.includes("agendar")) {
         state.step = "ask_datetime";
+        state.temp = {};
         await setUserState(from, state);
-        await sendMessage(from, "Perfeito! Envie a data e horário desejados, ex: 15/12/2025 14:00");
+
+        await sendMessage(from, "Perfeito! Envie a data e horário desejados.\nExemplo: 15/12/2025 14:00");
         return res.sendStatus(200);
       }
 
@@ -118,18 +129,24 @@ export default async function handler(req, res) {
       const iso = parseDateTime(text);
 
       if (!iso) {
-        await sendMessage(from, "Formato inválido. Tente: 15/12/2025 14:00");
+        await sendMessage(from, "Formato inválido. Tente assim: 15/12/2025 14:00");
         return res.sendStatus(200);
       }
 
       const startISO = iso;
       const endISO = new Date(new Date(iso).getTime() + 60 * 60000).toISOString();
 
-      const free = await isTimeSlotFree(startISO, endISO);
-
+      let free;
+      try {
+        free = await isTimeSlotFree(startISO, endISO);
+      } catch (err) {
+        console.error("Erro do Google Calendar:", err);
+        await sendMessage(from, "⚠ Não consegui verificar o horário. Tente novamente.");
+        return res.sendStatus(200);
+      }
 
       if (!free) {
-        await sendMessage(from, "❌ Esse horário está ocupado. Envie outro por favor.");
+        await sendMessage(from, "❌ Esse horário está ocupado. Envie outro horário.");
         return res.sendStatus(200);
       }
 
@@ -137,21 +154,28 @@ export default async function handler(req, res) {
       state.step = "ask_name";
       await setUserState(from, state);
 
-      await sendMessage(from, "Ótimo! Agora envie seu *nome completo* para confirmar.");
+      await sendMessage(from, "Ótimo! Agora envie seu *nome completo* para confirmar o agendamento.");
       return res.sendStatus(200);
     }
 
-    // ---------------------- NOME ----------------------
+    // ---------------------- NOME → AGENDAR ----------------------
     if (state.step === "ask_name") {
       const nome = text;
       state.temp.name = nome;
 
-      const event = await createEvent({
-        summary: `Consulta - ${nome}`,
-        description: `Agendamento via WhatsApp — ${nome} / ${from}`,
-        startISO: state.temp.startISO,
-        durationMinutes: 60,
-      }).catch(() => null);
+      let event;
+
+      try {
+        event = await createEvent({
+          summary: `Consulta - ${nome}`,
+          description: `Agendamento via WhatsApp — ${nome} (${from})`,
+          startISO: state.temp.startISO,
+          durationMinutes: 60,
+        });
+      } catch (err) {
+        console.error("Erro ao criar evento:", err);
+        event = null;
+      }
 
       if (!event) {
         await sendMessage(from, "❌ Erro ao agendar. Tente novamente.");
@@ -160,13 +184,18 @@ export default async function handler(req, res) {
         return res.sendStatus(200);
       }
 
-      await appendRow([
-        new Date().toLocaleString(),
-        from,
-        nome,
-        state.temp.startISO,
-        event.htmlLink,
-      ]);
+      // Salva na planilha
+      try {
+        await appendRow([
+          new Date().toLocaleString(),
+          from,
+          nome,
+          state.temp.startISO,
+          event.htmlLink || "",
+        ]);
+      } catch (err) {
+        console.error("Erro ao escrever na planilha:", err);
+      }
 
       const startLocal = new Date(state.temp.startISO).toLocaleString("pt-BR", {
         timeZone: "America/Fortaleza",
@@ -174,13 +203,14 @@ export default async function handler(req, res) {
 
       await sendMessage(
         from,
-        `✅ *Consulta confirmada!*\n\n👤 ${nome}\n📅 ${startLocal}\n⏰ 1h de duração\n\nSe precisar cancelar, escreva aqui.`
+        `✅ *Consulta confirmada!*\n\n👤 ${nome}\n📅 ${startLocal}\n⏰ 1h de duração\n\nSe precisar remarcar, basta enviar uma mensagem.`
       );
 
       await setUserState(from, { step: "menu", temp: {} });
       return res.sendStatus(200);
     }
 
+    // ---------------------- DEFAULT ----------------------
     await sendMessage(from, "Não entendi. Digite *menu*.");
     return res.sendStatus(200);
   } catch (err) {
