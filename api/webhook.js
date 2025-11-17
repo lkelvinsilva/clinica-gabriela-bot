@@ -15,7 +15,52 @@ function parseDateTime(text) {
   ).toISOString();
 }
 
-// ---------------------- ENVIO DE MENSAGEM TEXTO ----------------------
+// ---------------------- BOTÕES ----------------------
+async function sendMenuButtons(to) {
+  try {
+    await axios.post(
+      `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: "whatsapp",
+        to,
+        type: "interactive",
+        interactive: {
+          type: "button",
+          body: {
+            text:
+              "Olá! 😊\nEscolha uma opção abaixo:",
+          },
+          action: {
+            buttons: [
+              {
+                type: "reply",
+                reply: { id: "1", title: "Agendar Consulta" }
+              },
+              {
+                type: "reply",
+                reply: { id: "2", title: "Harmonização Facial" }
+              },
+              {
+                type: "reply",
+                reply: { id: "3", title: "Endereço" }
+              }
+            ]
+          }
+        }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json",
+        }
+      }
+    );
+  } catch (err) {
+    console.error("Erro ao enviar botões:", err?.response?.data || err);
+  }
+}
+
+// ---------------------- ENVIO DE TEXTO ----------------------
 async function sendMessage(to, text) {
   try {
     await axios.post(
@@ -29,8 +74,7 @@ async function sendMessage(to, text) {
         headers: {
           Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
           "Content-Type": "application/json",
-        },
-        timeout: 10000,
+        }
       }
     );
   } catch (err) {
@@ -38,59 +82,9 @@ async function sendMessage(to, text) {
   }
 }
 
-// ---------------------- ENVIO DE BOTÕES INTERATIVOS ----------------------
-async function sendMenuButtons(to) {
-  try {
-    await axios.post(
-      `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
-      {
-        messaging_product: "whatsapp",
-        to,
-        type: "interactive",
-        interactive: {
-          type: "button",
-          body: {
-            text:
-              "Olá! Seja bem-vinda(o) 😊\n\nSou a assistente da Dra. Gabriela.\nEscolha uma das opções:",
-          },
-          action: {
-            buttons: [
-              {
-                type: "reply",
-                reply: { id: "1", title: "Agendar consulta" },
-              },
-              {
-                type: "reply",
-                reply: { id: "2", title: "Harmonização facial" },
-              },
-              {
-                type: "reply",
-                reply: { id: "3", title: "Endereço" },
-              },
-              {
-                type: "reply",
-                reply: { id: "4", title: "Falar com a Dra" },
-              },
-            ],
-          },
-        },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 15000,
-      }
-    );
-  } catch (err) {
-    console.error("Erro ao enviar menu interativo:", err?.response?.data || err);
-  }
-}
-
 // ---------------------- HANDLER ----------------------
 export default async function handler(req, res) {
-  // Verificação inicial do webhook
+  // ---------- VERIFICAÇÃO DO WEBHOOK ----------
   if (req.method === "GET") {
     const mode = req.query["hub.mode"];
     const token = req.query["hub.verify_token"];
@@ -102,103 +96,98 @@ export default async function handler(req, res) {
     return res.status(403).send("forbidden");
   }
 
-  if (req.method !== "POST") {
-    return res.status(405).send("method_not_allowed");
-  }
+  if (req.method !== "POST") return res.status(405).send("method_not_allowed");
 
   try {
-    const msg = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-    if (!msg) return res.status(200).send("no_message");
+    const message = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    if (!message) return res.status(200).send("no_message");
 
-    const msgId = msg.id;
-    const from = msg.from;
+    const msgId = message.id;
+    const from = message.from;
+    const text = (
+      message.text?.body ||
+      message.button?.text ||
+      message.button?.payload ||
+      ""
+    ).trim().toLowerCase();
+
+    if (!msgId || !from) return res.status(200).send("no_id");
 
     if (await isDuplicateMessage(msgId)) {
       return res.status(200).send("duplicate");
     }
 
-    const state = await getUserState(from);
-    const text = msg.text?.body?.trim().toLowerCase();
-    const buttonId = msg.interactive?.button_reply?.id;
+    let state = await getUserState(from);
 
-    // ---------------------- MENU INICIAL ----------------------
-    if (!state || !state.step || text === "menu" || text === "oi" || text === "olá") {
+    // Quando o usuário digita "menu"
+    if (text === "menu" || text === "oi" || text === "olá") {
       await setUserState(from, { step: "menu", temp: {} });
       await sendMenuButtons(from);
-      return res.status(200).send("menu_sent");
-    }
-
-    // ---------------------- BOTÕES DO MENU ----------------------
-    if (buttonId === "1") {
-      state.step = "ask_datetime";
-      await setUserState(from, state);
-      await sendMessage(from, "Perfeito! Envie a data e horário desejados.\nExemplo: 15/12/2025 14:00");
       return res.status(200).send("ok");
     }
 
-    if (buttonId === "2") {
-      await sendMessage(
-        from,
-        `✨ *Harmonização Facial*\n\n` +
-          `1️⃣ Preenchimento Labial\n` +
-          `2️⃣ Toxina Botulínica (Botox)\n` +
-          `3️⃣ Preenchimento Mentual\n` +
-          `4️⃣ Rinomodelação\n` +
-          `5️⃣ Preenchimento Bigode Chinês\n` +
-          `6️⃣ Preenchimento Mandibular\n` +
-          `7️⃣ Bioestimulador de Colágeno\n` +
-          `8️⃣ Outros\n`
-      );
-      return res.status(200).send("ok");
-    }
-
-    if (buttonId === "3") {
-      await sendMessage(
-        from,
-        "📍 Endereço: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE."
-      );
-      return res.status(200).send("ok");
-    }
-
-    if (buttonId === "4") {
-      await sendMessage(from, "Enviei seu contato para a Dra. Ela te responderá em breve. 💬");
-      return res.status(200).send("ok");
-    }
-
-    // ---------------------- DATA/HORA ----------------------
-    if (state.step === "ask_datetime") {
-      const iso = parseDateTime(text);
-
-      if (!iso) {
-        await sendMessage(from, "Formato inválido. Exemplo correto: 15/12/2025 14:00");
-        return res.status(200).send("invalid_date");
+    // Se o usuário está no MENU
+    if (!state || state.step === "menu") {
+      if (text === "1") {
+        state = { step: "ask_datetime", temp: {} };
+        await setUserState(from, state);
+        await sendMessage(from, "Perfeito! Envie a data e horário. Ex: 15/12/2025 14:00");
+        return res.status(200).send("ok");
       }
 
-      const endISO = new Date(new Date(iso).getTime() + 60 * 60000).toISOString();
-      const free = await isTimeSlotFree(iso, endISO);
+      if (text === "2") {
+        await sendMessage(
+          from,
+          "✨ *Harmonização Facial*\n\nEscolha o procedimento:\n1️⃣ Preenchimento Labial\n2️⃣ Botox\n3️⃣ Preenchimento Mentual\n4️⃣ Rinomodelação\n5️⃣ Bigode Chinês\n6️⃣ Mandíbula\n7️⃣ Bioestimulador\n8️⃣ Outros"
+        );
+        return res.status(200).send("ok");
+      }
 
-      if (!free) {
-        await sendMessage(from, "❌ Esse horário está ocupado. Envie outro.");
-        return res.status(200).send("busy");
+      if (text === "3") {
+        await sendMessage(from, "📍 Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
+        return res.status(200).send("ok");
+      }
+
+      await sendMenuButtons(from);
+      return res.status(200).send("ok");
+    }
+
+    // ---------------------- PEDIR DATA ----------------------
+    if (state.step === "ask_datetime") {
+      const iso = parseDateTime(text);
+      if (!iso) {
+        await sendMessage(from, "Formato inválido. Tente enviar assim: 15/12/2025 14:00");
+        return;
+      }
+
+      const end = new Date(new Date(iso).getTime() + 60 * 60000).toISOString();
+
+      if (!(await isTimeSlotFree(iso, end))) {
+        await sendMessage(from, "❌ Horário ocupado. Envie outro horário.");
+        return;
       }
 
       state.temp.startISO = iso;
       state.step = "ask_name";
       await setUserState(from, state);
-
-      await sendMessage(from, "Ótimo! Agora envie seu *nome completo*.");
-      return res.status(200).send("ok");
+      await sendMessage(from, "Ótimo! Agora envie seu nome completo.");
+      return;
     }
 
-    // ---------------------- FINALIZA AGENDAMENTO ----------------------
+    // ---------------------- FINALIZAR AGENDAMENTO ----------------------
     if (state.step === "ask_name") {
       const nome = text;
+      state.temp.name = nome;
 
       const event = await createEvent({
         summary: `Consulta - ${nome}`,
-        description: `Agendamento via WhatsApp — ${nome}`,
+        description: `Agendado via WhatsApp — ${nome}`,
         startISO: state.temp.startISO,
-        durationMinutes: 60,
+        durationMinutes: 60
+      });
+
+      const startLocal = new Date(state.temp.startISO).toLocaleString("pt-BR", {
+        timeZone: "America/Fortaleza"
       });
 
       await appendRow([
@@ -206,24 +195,22 @@ export default async function handler(req, res) {
         from,
         nome,
         state.temp.startISO,
-        event.htmlLink || "",
+        event.htmlLink || ""
       ]);
-
-      const startLocal = new Date(state.temp.startISO).toLocaleString("pt-BR", {
-        timeZone: "America/Fortaleza",
-      });
 
       await sendMessage(
         from,
-        `✅ *Consulta confirmada!*\n\n👤 ${nome}\n📅 ${startLocal}\n⏰ 1h de duração`
+        `✅ *Consulta confirmada!*\n👤 ${nome}\n📅 ${startLocal}`
       );
 
       await setUserState(from, { step: "menu", temp: {} });
-      return res.status(200).send("ok");
+      await sendMenuButtons(from);
+      return;
     }
 
     await sendMenuButtons(from);
-    return res.status(200).send("default");
+    return res.status(200).send("ok");
+
   } catch (err) {
     console.error("Erro no webhook:", err);
     return res.status(500).send("internal_error");
