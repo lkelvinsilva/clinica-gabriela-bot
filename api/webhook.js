@@ -92,12 +92,12 @@ export default async function handler(req, res) {
       if (lower.includes("oi") || lower.includes("olá") || lower === "menu") {
         await sendMessage(
           from,
-          `Olá! Seja bem vinda (o) \n Sou a assistente da Dra. Gabriela e estou aqui para te ajudar nesse inicio!\n Por favor, escolha uma das opções abaixo pra te direcionarmos melhor:\n\n` + +
+          `Olá! Seja bem vinda (o)  Sou a assistente da Dra. Gabriela e estou aqui para te ajudar nesse inicio!\n Por favor, escolha uma das opções abaixo pra te direcionarmos melhor:\n\n` + +
             `1️⃣ Agendar consulta\n` +
             `2️⃣ Harmonização facial\n` +
             `3️⃣ Endereço\n` +
             `4️⃣ Em caso de dúvida falar com a Dra. Gabriela\n\n` +
-            `Digite o número da opção.` +
+            `Digite o número da opção.` 
         );
         return res.status(200).send("ok");
       }
@@ -141,7 +141,7 @@ export default async function handler(req, res) {
     }
 
 
-      if (lower === "4" || lower.includes("endereço")) {
+      if (lower === "3" || lower.includes("endereço")) {
         await sendMessage(
           from,
           "📍 Endereço: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE."
