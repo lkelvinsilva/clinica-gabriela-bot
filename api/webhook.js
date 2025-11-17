@@ -1,3 +1,4 @@
+import 'module-alias/register';
 import axios from "axios";
 import { getUserState, setUserState, isDuplicateMessage } from "../utils/state.js";
 import { isTimeSlotFree, createEvent } from "../utils/googleCalendar.js";
@@ -97,7 +98,7 @@ export default async function handler(req, res) {
             `2️⃣ Harmonização facial\n` +
             `3️⃣ Orçamentos\n` +
             `4️⃣ Endereço\n` +
-            `5️⃣ Falar com a Dra. Gabriela\n\n` +
+            `5️⃣ Em caso de dúvida falar com a Dra. Gabriela\n\n` +
             `Digite o número da opção.`
         );
         return res.status(200).send("ok");
@@ -111,11 +112,41 @@ export default async function handler(req, res) {
         await sendMessage(from, "Perfeito! Envie a data e horário desejados.\nExemplo: 15/12/2025 14:00");
         return res.status(200).send("ok");
       }
+      if (
+          lower === "2" ||
+          lower.includes("harmonizacao") || // sem acento
+          lower.includes("harmonização")    // com acento
+        )
+        {
+              await sendMessage(
+        from,
+        `✨ *Harmonização Facial*\n\n` +
+          `Escolha o procedimento desejado:\n\n` +
+          `1️⃣ *Preenchimento Labial*\n` +
+          `💋 Melhora o contorno, volume e hidratação dos lábios.\n\n` +
+          `2️⃣ *Toxina Botulínica (Botox)*\n` +
+          `✨ Suaviza rugas de expressão (testa, glabela e pés de galinha).\n\n` +
+          `3️⃣ *Preenchimento Mentual*\n` +
+          `🧬 Realça e projeta o queixo para mais harmonia facial.\n\n` +
+          `4️⃣ *Rinomodelação*\n` +
+          `👃 Ajustes sutis no nariz sem cirurgia.\n\n` +
+          `5️⃣ *Preenchimento do Bigode Chinês*\n` +
+          `😊 Suaviza sulcos nasogenianos.\n\n` +
+          `6️⃣ *Preenchimento Mandibular*\n` +
+          `🦴 Define e contorna a mandíbula.\n\n` +
+          `7️⃣ *Bioestimulador de Colágeno*\n` +
+          `🧪 Melhora firmeza, textura e estimula colágeno.\n\n` +
+          `8️⃣ *Outros procedimentos*\n` +
+          `💬 Basta enviar o nome do procedimento que deseja saber mais.`
+      );
+      return res.sendStatus(200);
+    }
+
 
       if (lower === "4" || lower.includes("endereço")) {
         await sendMessage(
           from,
-          "📍 Endereço: Av. Washington Soares, 3663 - Sala 910 - Fortaleza - CE."
+          "📍 Endereço: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE."
         );
         return res.status(200).send("ok");
       }
