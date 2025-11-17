@@ -1,7 +1,7 @@
 import axios from "axios";
-import { getUserState, setUserState, isDuplicateMessage } from "@/utils/state";
-import { isTimeSlotFree, createEvent } from "@/utils/googleCalendar";
-import { appendRow } from "@/utils/googleSheets";
+import { getUserState, setUserState, isDuplicateMessage } from "../utils/state.js";
+import { isTimeSlotFree, createEvent } from "../utils/googleCalendar.js";
+import { appendRow } from "../utils/googleSheets.js";
 
 // ---------------------- PARSE DE DATA ----------------------
 function parseDateTime(text) {
@@ -29,7 +29,8 @@ async function sendMessage(to, text) {
         headers: {
           Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
           "Content-Type": "application/json",
-        }
+        },
+        timeout: 10000,
       }
     );
   } catch (err) {
@@ -37,83 +38,99 @@ async function sendMessage(to, text) {
   }
 }
 
-// ---------------------- GET (verificação do webhook) ----------------------
-export async function GET(request) {
-  const url = new URL(request.url);
-
-  const mode = url.searchParams.get("hub.mode");
-  const token = url.searchParams.get("hub.verify_token");
-  const challenge = url.searchParams.get("hub.challenge");
-
-  if (mode === "subscribe" && token === process.env.VERIFY_TOKEN) {
-    return new Response(challenge, { status: 200 });
+// ---------------------- HANDLER ----------------------
+export default async function handler(req, res) {
+  // ---------- PING DO GITHUB ACTIONS ----------
+  if (req.method === "GET" && req.query.ping) {
+    if (req.query.ping === process.env.PING_TOKEN) {
+      return res.status(200).send("pong");
+    }
+    return res.status(403).send("invalid");
   }
 
-  return new Response("Forbidden", { status: 403 });
-}
+  // ---------- VERIFICAÇÃO DO WEBHOOK ----------
+  if (req.method === "GET") {
+    const mode = req.query["hub.mode"];
+    const token = req.query["hub.verify_token"];
+    const challenge = req.query["hub.challenge"];
 
-// ---------------------- POST (mensagens do WhatsApp) ----------------------
-export async function POST(request) {
+    if (mode === "subscribe" && token === process.env.VERIFY_TOKEN) {
+      return res.status(200).send(challenge);
+    }
+
+    return res.status(403).send("forbidden");
+  }
+
+  if (req.method !== "POST") {
+    return res.status(405).send("method_not_allowed");
+  }
+
   try {
-    const body = await request.json();
-
-    const entry = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    const entry = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
     if (!entry) {
-      return new Response("OK", { status: 200 });
+      return res.status(200).send("no_message");
     }
 
     const msgId = entry.id;
     const from = entry.from;
     const text = (entry.text?.body || "").trim();
 
-    if (!msgId || !from) return new Response("OK", { status: 200 });
+    if (!msgId || !from) return res.status(200).send("no_id");
 
+    // PREVENÇÃO DE DUPLICATAS
     if (await isDuplicateMessage(msgId)) {
       console.log("Mensagem duplicada ignorada:", msgId);
-      return new Response("OK", { status: 200 });
+      return res.status(200).send("duplicate");
     }
 
     const state = await getUserState(from);
     const lower = text.toLowerCase();
 
-    // MENU
+    // ---------------------- MENU ----------------------
     if (state.step === "menu") {
       if (lower.includes("oi") || lower.includes("olá") || lower === "menu") {
         await sendMessage(
           from,
           `Olá! Sou a assistente da Dra. Gabriela 😊\n\n` +
             `1️⃣ Agendar consulta\n` +
-            `4️⃣ Endereço\n\n` +
+            `2️⃣ Harmonização facial\n` +
+            `3️⃣ Orçamentos\n` +
+            `4️⃣ Endereço\n` +
+            `5️⃣ Falar com a Dra. Gabriela\n\n` +
             `Digite o número da opção.`
         );
-        return new Response("OK", { status: 200 });
+        return res.status(200).send("ok");
       }
 
-      if (lower === "1") {
+      if (lower === "1" || lower.includes("agendar")) {
         state.step = "ask_datetime";
         state.temp = {};
         await setUserState(from, state);
 
         await sendMessage(from, "Perfeito! Envie a data e horário desejados.\nExemplo: 15/12/2025 14:00");
-        return new Response("OK", { status: 200 });
+        return res.status(200).send("ok");
       }
 
-      if (lower === "4") {
-        await sendMessage(from, "📍 Av. Washington Soares, 3663 - Sala 910 - Fortaleza - CE.");
-        return new Response("OK", { status: 200 });
+      if (lower === "4" || lower.includes("endereço")) {
+        await sendMessage(
+          from,
+          "📍 Endereço: Av. Washington Soares, 3663 - Sala 910 - Fortaleza - CE."
+        );
+        return res.status(200).send("ok");
       }
 
-      await sendMessage(from, "Digite *menu*.");
-      return new Response("OK", { status: 200 });
+      await sendMessage(from, "Digite *menu* ou *1* para agendar.");
+      return res.status(200).send("ok");
     }
 
-    // DATA/HORA
+    // ---------------------- DATA/HORA ----------------------
     if (state.step === "ask_datetime") {
       const iso = parseDateTime(text);
+
       if (!iso) {
         await sendMessage(from, "Formato inválido. Tente assim: 15/12/2025 14:00");
-        return new Response("OK", { status: 200 });
+        return res.status(200).send("invalid_date");
       }
 
       const startISO = iso;
@@ -123,25 +140,25 @@ export async function POST(request) {
       try {
         free = await isTimeSlotFree(startISO, endISO);
       } catch (err) {
-        console.error("Erro Google Calendar:", err);
-        await sendMessage(from, "⚠ Não consegui verificar o horário.");
-        return new Response("OK", { status: 200 });
+        console.error("Erro do Google Calendar:", err);
+        await sendMessage(from, "⚠ Não consegui verificar o horário. Tente novamente.");
+        return res.status(200).send("calendar_error");
       }
 
       if (!free) {
-        await sendMessage(from, "❌ Esse horário está ocupado.");
-        return new Response("OK", { status: 200 });
+        await sendMessage(from, "❌ Esse horário está ocupado. Envie outro horário.");
+        return res.status(200).send("busy");
       }
 
       state.temp.startISO = startISO;
       state.step = "ask_name";
       await setUserState(from, state);
 
-      await sendMessage(from, "Ótimo! Agora envie seu *nome completo*.");
-      return new Response("OK", { status: 200 });
+      await sendMessage(from, "Ótimo! Agora envie seu *nome completo* para confirmar o agendamento.");
+      return res.status(200).send("ok");
     }
 
-    // CONFIRMAR AGENDAMENTO
+    // ---------------------- NOME → AGENDAR ----------------------
     if (state.step === "ask_name") {
       const nome = text;
       state.temp.name = nome;
@@ -161,12 +178,13 @@ export async function POST(request) {
       }
 
       if (!event) {
-        await sendMessage(from, "❌ Erro ao agendar.");
+        await sendMessage(from, "❌ Erro ao agendar. Tente novamente.");
         state.step = "menu";
         await setUserState(from, state);
-        return new Response("OK", { status: 200 });
+        return res.status(200).send("event_error");
       }
 
+      // Salva na planilha
       try {
         await appendRow([
           new Date().toLocaleString(),
@@ -179,16 +197,24 @@ export async function POST(request) {
         console.error("Erro ao escrever na planilha:", err);
       }
 
-      await sendMessage(from, `✅ *Consulta confirmada!*`);
+      const startLocal = new Date(state.temp.startISO).toLocaleString("pt-BR", {
+        timeZone: "America/Fortaleza",
+      });
+
+      await sendMessage(
+        from,
+        `✅ *Consulta confirmada!*\n\n👤 ${nome}\n📅 ${startLocal}\n⏰ 1h de duração\n\nSe precisar remarcar, basta enviar uma mensagem.`
+      );
 
       await setUserState(from, { step: "menu", temp: {} });
-      return new Response("OK", { status: 200 });
+      return res.status(200).send("ok");
     }
 
-    await sendMessage(from, "Digite *menu*.");
-    return new Response("OK", { status: 200 });
+    // ---------------------- DEFAULT ----------------------
+    await sendMessage(from, "Não entendi. Digite *menu*.");
+    return res.status(200).send("default");
   } catch (err) {
     console.error("Erro no webhook:", err);
-    return new Response("Erro interno", { status: 500 });
+    return res.status(500).send("internal_error");
   }
 }
