@@ -89,12 +89,9 @@ export default async function handler(req, res) {
 
     // ---------------------- MENU ----------------------
     // Se não existir state, iniciar no menu
-    if (!state || state.step === "menu") {
-    await setUserState(from, { step: "menu", temp: {} });
-
+      if (state.step === "menu") {
       if (lower.includes("oi") || lower.includes("olá") || lower === "menu") {
         await sendMessage(
-          from,
           `Olá! Seja bem vinda (o) 😊\n\nSou a assistente da Dra. Gabriela e estou aqui para te ajudar nesse inicio!Por favor, escolha uma das opções abaixo pra te direcionarmos melhor:\n` +          
             `1️⃣ Agendar consulta\n` +
             `2️⃣ Harmonização facial\n` +
@@ -103,7 +100,7 @@ export default async function handler(req, res) {
             `Digite o número da opção.\n` 
             
         );
-        return res.status(200).send("ok");
+        return res.status(200).send("menu_sent");
       }
 
       if (lower === "1" || lower.includes("agendar")) {
@@ -112,18 +109,17 @@ export default async function handler(req, res) {
         await setUserState(from, state);
 
         await sendMessage(from, "Perfeito! Envie a data e horário desejados.\nExemplo: 15/12/2025 14:00");
-        return res.status(200).send("menu_sent");
+        return res.status(200).send("ok");
       }
-      if (
-          lower === "2" ||
-          lower.includes("harmonizacao") || // sem acento
-          lower.includes("harmonização")    // com acento
-        )
-        {
-              await sendMessage(
-        from,
-        `✨ *Harmonização Facial*\n\n` +
-          `Escolha o procedimento desejado:\n\n` +
+      if (lower === "2" || lower.includes("harmonizacao") || lower.includes("harmonização")) {
+
+  state.step = "harmonizacao_procedimento";
+  await setUserState(from, state);
+
+  await sendMessage(
+    from,
+    `✨ *Harmonização Facial*\n\n` +
+      `Escolha o procedimento desejado:\n\n` +
           `1️⃣ *Preenchimento Labial*\n` +
           `💋 Melhora o contorno, volume e hidratação dos lábios.\n\n` +
           `2️⃣ *Toxina Botulínica (Botox)*\n` +
@@ -139,13 +135,12 @@ export default async function handler(req, res) {
           `7️⃣ *Bioestimulador de Colágeno*\n` +
           `🧪 Melhora firmeza, textura e estimula colágeno.\n\n` +
           `8️⃣ *Outros procedimentos*\n` +
-          `💬 Basta enviar o nome do procedimento que deseja saber mais.`
-      );
-      return res.status(200).send("ok");
+      `Digite o número da opção ou escreva o nome do procedimento.`
+  );
+  return res.status(200).send("ok");
+}
 
-    }
-
-
+ 
       if (lower === "3" || lower.includes("endereço")) {
         await sendMessage(
           from,
@@ -243,6 +238,56 @@ export default async function handler(req, res) {
       await setUserState(from, { step: "menu", temp: {} });
       return res.status(200).send("ok");
     }
+    // ---------------------- HARMONIZAÇÃO → REDIRECIONAR ----------------------
+if (state.step === "harmonizacao_procedimento") {
+
+  const procedimentos = {
+    "1": "Preenchimento Labial",
+    "2": "Toxina Botulínica (Botox)",
+    "3": "Preenchimento Mentual",
+    "4": "Rinomodelação",
+    "5": "Preenchimento Bigode Chinês",
+    "6": "Preenchimento Mandibular",
+    "7": "Bioestimulador de Colágeno",
+    "8": "Outros procedimentos",
+  };
+
+  let escolhido = procedimentos[text];
+
+  if (!escolhido) {
+    // detectar por nome
+    const texto = text.toLowerCase();
+
+    for (const key in procedimentos) {
+      if (procedimentos[key].toLowerCase().includes(texto)) {
+        escolhido = procedimentos[key];
+        break;
+      }
+    }
+  }
+
+  if (!escolhido) {
+    await sendMessage(from, "Não consegui identificar o procedimento. Digite o número ou nome.");
+    return res.status(200).send("invalid_proc");
+  }
+
+  // Número pessoal para encaminhar
+  const numeroPessoal = "5585994160815"; // 🔥 ALTERE PARA O NÚMERO DESEJADO
+
+  const link = `https://wa.me/${numeroPessoal}?text=Olá!%20Tenho%20interesse%20em:%20${encodeURIComponent(escolhido)}`;
+
+  await sendMessage(
+    from,
+    `✨ Perfeito! Vou te encaminhar para atendimento direto.\n\n` +
+      `Clique no link abaixo para continuar:\n\n${link}`
+  );
+
+  // volta ao menu
+  await setUserState(from, { step: "menu", temp: {} });
+
+  return res.status(200).send("redirect_done");
+}
+
 
     // ---------------------- DEFAULT ----------------------
     await sendMessage(from, "Não entendi. Digite *menu*.");
