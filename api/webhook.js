@@ -92,7 +92,7 @@ export default async function handler(req, res) {
       if (lower.includes("oi") || lower.includes("olá") || lower === "menu") {
         await sendMessage(
           from,
-          `Olá! Seja bem vinda (o) 😊\nSou a assistente da Dra. Gabriela e estou aqui para te ajudar nesse inicio!\nPor favor, escolha uma das opções abaixo pra te direcionarmos melhor:\n` +          
+          `Olá! Seja bem vinda (o) 😊\n\nSou a assistente da Dra. Gabriela e estou aqui para te ajudar nesse inicio!\nPor favor, escolha uma das opções abaixo pra te direcionarmos melhor:\n` +          
             `1️⃣ Agendar consulta\n` +
             `2️⃣ Harmonização facial\n` +
             `3️⃣ Endereço\n` +
