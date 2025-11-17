@@ -91,11 +91,7 @@ export default async function handler(req, res) {
     // Se não existir state, iniciar no menu
     if (!state || !state.step) {
     await setUserState(from, { step: "menu", temp: {} });
-    const state = await getUserState(from);
-    const lower = text.toLowerCase();
 
-
-    
       if (lower.includes("oi") || lower.includes("olá") || lower === "menu") {
         await sendMessage(
           from,
@@ -116,7 +112,7 @@ export default async function handler(req, res) {
         await setUserState(from, state);
 
         await sendMessage(from, "Perfeito! Envie a data e horário desejados.\nExemplo: 15/12/2025 14:00");
-        return res.status(200).send("ok");
+        return res.status(200).send("menu_sent");
       }
       if (
           lower === "2" ||
