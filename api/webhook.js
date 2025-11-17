@@ -15,7 +15,7 @@ function parseDateTime(text) {
   ).toISOString();
 }
 
-// ---------------------- ENVIO DE MENSAGEM ----------------------
+// ---------------------- ENVIO DE MENSAGEM TEXTO ----------------------
 async function sendMessage(to, text) {
   try {
     await axios.post(
@@ -38,17 +38,59 @@ async function sendMessage(to, text) {
   }
 }
 
+// ---------------------- ENVIO DE BOTÕES INTERATIVOS ----------------------
+async function sendMenuButtons(to) {
+  try {
+    await axios.post(
+      `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: "whatsapp",
+        to,
+        type: "interactive",
+        interactive: {
+          type: "button",
+          body: {
+            text:
+              "Olá! Seja bem-vinda(o) 😊\n\nSou a assistente da Dra. Gabriela.\nEscolha uma das opções:",
+          },
+          action: {
+            buttons: [
+              {
+                type: "reply",
+                reply: { id: "1", title: "Agendar consulta" },
+              },
+              {
+                type: "reply",
+                reply: { id: "2", title: "Harmonização facial" },
+              },
+              {
+                type: "reply",
+                reply: { id: "3", title: "Endereço" },
+              },
+              {
+                type: "reply",
+                reply: { id: "4", title: "Falar com a Dra" },
+              },
+            ],
+          },
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 15000,
+      }
+    );
+  } catch (err) {
+    console.error("Erro ao enviar menu interativo:", err?.response?.data || err);
+  }
+}
+
 // ---------------------- HANDLER ----------------------
 export default async function handler(req, res) {
-  // ---------- PING DO GITHUB ACTIONS ----------
-  if (req.method === "GET" && req.query.ping) {
-    if (req.query.ping === process.env.PING_TOKEN) {
-      return res.status(200).send("pong");
-    }
-    return res.status(403).send("invalid");
-  }
-
-  // ---------- VERIFICAÇÃO DO WEBHOOK ----------
+  // Verificação inicial do webhook
   if (req.method === "GET") {
     const mode = req.query["hub.mode"];
     const token = req.query["hub.verify_token"];
@@ -57,7 +99,6 @@ export default async function handler(req, res) {
     if (mode === "subscribe" && token === process.env.VERIFY_TOKEN) {
       return res.status(200).send(challenge);
     }
-
     return res.status(403).send("forbidden");
   }
 
@@ -66,90 +107,61 @@ export default async function handler(req, res) {
   }
 
   try {
-    const entry = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    const msg = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    if (!msg) return res.status(200).send("no_message");
 
-    if (!entry) {
-      return res.status(200).send("no_message");
-    }
+    const msgId = msg.id;
+    const from = msg.from;
 
-    const msgId = entry.id;
-    const from = entry.from;
-    const text = (entry.text?.body || "").trim();
-
-    if (!msgId || !from) return res.status(200).send("no_id");
-
-    // PREVENÇÃO DE DUPLICATAS
     if (await isDuplicateMessage(msgId)) {
-      console.log("Mensagem duplicada ignorada:", msgId);
       return res.status(200).send("duplicate");
     }
 
     const state = await getUserState(from);
-    const lower = text.toLowerCase();
+    const text = msg.text?.body?.trim().toLowerCase();
+    const buttonId = msg.interactive?.button_reply?.id;
 
-    // ---------------------- MENU ----------------------
-    if (state.step === "menu") {
-      if (lower.includes("oi") || lower.includes("olá") || lower === "menu") {
-        await sendMessage(
-          from,
-          `Olá! Seja bem vinda (o) 😊\n\nSou a assistente da Dra. Gabriela e estou aqui para te ajudar nesse inicio!\nPor favor, escolha uma das opções abaixo pra te direcionarmos melhor:\n` +          
-            `1️⃣ Agendar consulta\n` +
-            `2️⃣ Harmonização facial\n` +
-            `3️⃣ Endereço\n` +
-            `4️⃣ Em caso de dúvida falar com a Dra. Gabriela\n\n` +
-            `Digite o número da opção.` 
-        );
-        return res.status(200).send("ok");
-      }
-
-      if (lower === "1" || lower.includes("agendar")) {
-        state.step = "ask_datetime";
-        state.temp = {};
-        await setUserState(from, state);
-
-        await sendMessage(from, "Perfeito! Envie a data e horário desejados.\nExemplo: 15/12/2025 14:00");
-        return res.status(200).send("ok");
-      }
-      if (
-          lower === "2" ||
-          lower.includes("harmonizacao") || // sem acento
-          lower.includes("harmonização")    // com acento
-        )
-        {
-              await sendMessage(
-        from,
-        `✨ *Harmonização Facial*\n\n` +
-          `Escolha o procedimento desejado:\n\n` +
-          `1️⃣ *Preenchimento Labial*\n` +
-          `💋 Melhora o contorno, volume e hidratação dos lábios.\n\n` +
-          `2️⃣ *Toxina Botulínica (Botox)*\n` +
-          `✨ Suaviza rugas de expressão (testa, glabela e pés de galinha).\n\n` +
-          `3️⃣ *Preenchimento Mentual*\n` +
-          `🧬 Realça e projeta o queixo para mais harmonia facial.\n\n` +
-          `4️⃣ *Rinomodelação*\n` +
-          `👃 Ajustes sutis no nariz sem cirurgia.\n\n` +
-          `5️⃣ *Preenchimento do Bigode Chinês*\n` +
-          `😊 Suaviza sulcos nasogenianos.\n\n` +
-          `6️⃣ *Preenchimento Mandibular*\n` +
-          `🦴 Define e contorna a mandíbula.\n\n` +
-          `7️⃣ *Bioestimulador de Colágeno*\n` +
-          `🧪 Melhora firmeza, textura e estimula colágeno.\n\n` +
-          `8️⃣ *Outros procedimentos*\n` +
-          `💬 Basta enviar o nome do procedimento que deseja saber mais.`
-      );
-      return res.sendStatus(200);
+    // ---------------------- MENU INICIAL ----------------------
+    if (!state || !state.step || text === "menu" || text === "oi" || text === "olá") {
+      await setUserState(from, { step: "menu", temp: {} });
+      await sendMenuButtons(from);
+      return res.status(200).send("menu_sent");
     }
 
+    // ---------------------- BOTÕES DO MENU ----------------------
+    if (buttonId === "1") {
+      state.step = "ask_datetime";
+      await setUserState(from, state);
+      await sendMessage(from, "Perfeito! Envie a data e horário desejados.\nExemplo: 15/12/2025 14:00");
+      return res.status(200).send("ok");
+    }
 
-      if (lower === "3" || lower.includes("endereço")) {
-        await sendMessage(
-          from,
-          "📍 Endereço: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE."
-        );
-        return res.status(200).send("ok");
-      }
+    if (buttonId === "2") {
+      await sendMessage(
+        from,
+        `✨ *Harmonização Facial*\n\n` +
+          `1️⃣ Preenchimento Labial\n` +
+          `2️⃣ Toxina Botulínica (Botox)\n` +
+          `3️⃣ Preenchimento Mentual\n` +
+          `4️⃣ Rinomodelação\n` +
+          `5️⃣ Preenchimento Bigode Chinês\n` +
+          `6️⃣ Preenchimento Mandibular\n` +
+          `7️⃣ Bioestimulador de Colágeno\n` +
+          `8️⃣ Outros\n`
+      );
+      return res.status(200).send("ok");
+    }
 
-      await sendMessage(from, "Digite *menu* ou *1* para agendar.");
+    if (buttonId === "3") {
+      await sendMessage(
+        from,
+        "📍 Endereço: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE."
+      );
+      return res.status(200).send("ok");
+    }
+
+    if (buttonId === "4") {
+      await sendMessage(from, "Enviei seu contato para a Dra. Ela te responderá em breve. 💬");
       return res.status(200).send("ok");
     }
 
@@ -158,73 +170,44 @@ export default async function handler(req, res) {
       const iso = parseDateTime(text);
 
       if (!iso) {
-        await sendMessage(from, "Formato inválido. Tente assim: 15/12/2025 14:00");
+        await sendMessage(from, "Formato inválido. Exemplo correto: 15/12/2025 14:00");
         return res.status(200).send("invalid_date");
       }
 
-      const startISO = iso;
       const endISO = new Date(new Date(iso).getTime() + 60 * 60000).toISOString();
-
-      let free;
-      try {
-        free = await isTimeSlotFree(startISO, endISO);
-      } catch (err) {
-        console.error("Erro do Google Calendar:", err);
-        await sendMessage(from, "⚠ Não consegui verificar o horário. Tente novamente.");
-        return res.status(200).send("calendar_error");
-      }
+      const free = await isTimeSlotFree(iso, endISO);
 
       if (!free) {
-        await sendMessage(from, "❌ Esse horário está ocupado. Envie outro horário.");
+        await sendMessage(from, "❌ Esse horário está ocupado. Envie outro.");
         return res.status(200).send("busy");
       }
 
-      state.temp.startISO = startISO;
+      state.temp.startISO = iso;
       state.step = "ask_name";
       await setUserState(from, state);
 
-      await sendMessage(from, "Ótimo! Agora envie seu *nome completo* para confirmar o agendamento.");
+      await sendMessage(from, "Ótimo! Agora envie seu *nome completo*.");
       return res.status(200).send("ok");
     }
 
-    // ---------------------- NOME → AGENDAR ----------------------
+    // ---------------------- FINALIZA AGENDAMENTO ----------------------
     if (state.step === "ask_name") {
       const nome = text;
-      state.temp.name = nome;
 
-      let event;
+      const event = await createEvent({
+        summary: `Consulta - ${nome}`,
+        description: `Agendamento via WhatsApp — ${nome}`,
+        startISO: state.temp.startISO,
+        durationMinutes: 60,
+      });
 
-      try {
-        event = await createEvent({
-          summary: `Consulta - ${nome}`,
-          description: `Agendamento via WhatsApp — ${nome} (${from})`,
-          startISO: state.temp.startISO,
-          durationMinutes: 60,
-        });
-      } catch (err) {
-        console.error("Erro ao criar evento:", err);
-        event = null;
-      }
-
-      if (!event) {
-        await sendMessage(from, "❌ Erro ao agendar. Tente novamente.");
-        state.step = "menu";
-        await setUserState(from, state);
-        return res.status(200).send("event_error");
-      }
-
-      // Salva na planilha
-      try {
-        await appendRow([
-          new Date().toLocaleString(),
-          from,
-          nome,
-          state.temp.startISO,
-          event.htmlLink || "",
-        ]);
-      } catch (err) {
-        console.error("Erro ao escrever na planilha:", err);
-      }
+      await appendRow([
+        new Date().toLocaleString(),
+        from,
+        nome,
+        state.temp.startISO,
+        event.htmlLink || "",
+      ]);
 
       const startLocal = new Date(state.temp.startISO).toLocaleString("pt-BR", {
         timeZone: "America/Fortaleza",
@@ -232,15 +215,14 @@ export default async function handler(req, res) {
 
       await sendMessage(
         from,
-        `✅ *Consulta confirmada!*\n\n👤 ${nome}\n📅 ${startLocal}\n⏰ 1h de duração\n\nSe precisar remarcar, basta enviar uma mensagem.`
+        `✅ *Consulta confirmada!*\n\n👤 ${nome}\n📅 ${startLocal}\n⏰ 1h de duração`
       );
 
       await setUserState(from, { step: "menu", temp: {} });
       return res.status(200).send("ok");
     }
 
-    // ---------------------- DEFAULT ----------------------
-    await sendMessage(from, "Não entendi. Digite *menu*.");
+    await sendMenuButtons(from);
     return res.status(200).send("default");
   } catch (err) {
     console.error("Erro no webhook:", err);
