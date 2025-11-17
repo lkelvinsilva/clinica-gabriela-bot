@@ -89,7 +89,7 @@ export default async function handler(req, res) {
 
     // ---------------------- MENU ----------------------
     // Se não existir state, iniciar no menu
-    if (!state || !state.step) {
+    if (!state || state.step === "menu") {
     await setUserState(from, { step: "menu", temp: {} });
 
       if (lower.includes("oi") || lower.includes("olá") || lower === "menu") {
