@@ -121,89 +121,89 @@ export default async function handler(req, res) {
 
     // ---------- MENU PRINCIPAL ----------
     // Mostrar menu quando o estado é menu e usuário pede 'menu' ou cumprimentos
-    if (lower === "menu") {
-        state.step = "menu";
-        state.temp = {};
-        await setUserState(from, state);
-      if (lower === "menu" || lower.includes("oi") || lower.includes("olá") || lower.includes("bom dia") || lower.includes("boa tarde") || lower.includes("boa noite")) {
-        await sendMessage(
-          from,
-          `Olá! Seja bem vinda (o) 😊\n\nSou a assistente da Dra. Gabriela e estou aqui para te ajudar nesse inicio! Por favor, escolha uma das opções abaixo pra te direcionarmos melhor:\n` +          
-            `1️⃣ Serviços odontológicos\n` +
-            `2️⃣ Harmonização facial\n` +
-            `3️⃣ Endereço\n` +
-            `4️⃣ Falar com a Dra. Gabriela\n\n` +
-            `Digite apenas o número da opção.`
-        );
-        await setUserState(from, state);
-        return res.status(200).send("forced_menu");
-        return res.status(200).send("menu_sent");
-      }
+    // ---------- MENU PRINCIPAL ----------
+if (
+  lower === "menu" ||
+  lower === "oi" ||
+  lower === "ola" ||
+  lower === "olá" ||
+  lower === "bom dia" ||
+  lower === "boa tarde" ||
+  lower === "boa noite"
+) {
+  state.step = "menu";
+  state.temp = {};
+  await setUserState(from, state);
 
-      // Usuário escolheu uma das opções do menu
-      if (lower === "1") {
-        state.step = "odontologia_menu";
-        await setUserState(from, state);
+  await sendMessage(
+    from,
+    `Olá! Seja bem vinda (o) 😊\n\nSou a assistente da Dra. Gabriela!\nEscolha uma das opções abaixo:\n\n` +          
+      `1️⃣ Serviços odontológicos\n` +
+      `2️⃣ Harmonização facial\n` +
+      `3️⃣ Endereço\n` +
+      `4️⃣ Falar com a Dra. Gabriela\n\n` +
+      `Digite apenas o número da opção.`
+  );
 
-        await sendMessage(
-          from,
-          `🦷 *Serviços Odontológicos*\n\n` +
-            `1️⃣ Restauração em Resina\n` +
-            `2️⃣ Limpeza Dental\n` +
-            `3️⃣ Extração de Siso\n` +
-            `4️⃣ Clareamento Dental\n` +
-            `5️⃣ Outro serviço\n\n` +
-            `Digite o número da opção.\n` +
-            `Ou digite *menu* para voltar ao menu principal.`
-        );
-        return res.status(200).send("odontologia_menu");
-      }
+  return res.status(200).send("menu_sent");
+}
 
-      if (lower === "2") {
-        state.step = "harmonizacao_procedimento";
-        await setUserState(from, state);
 
-        await sendMessage(
-          from,
-          `✨ *Harmonização Facial*\n\n` +
-      `Escolha o procedimento desejado:\n\n` +
-          `1️⃣ *Preenchimento Labial*\n` +
-          `💋 Melhora o contorno, volume e hidratação dos lábios.\n\n` +
-          `2️⃣ *Toxina Botulínica (Botox)*\n` +
-          `✨ Suaviza rugas de expressão (testa, glabela e pés de galinha).\n\n` +
-          `3️⃣ *Preenchimento Mentual*\n` +
-          `🧬 Realça e projeta o queixo para mais harmonia facial.\n\n` +
-          `4️⃣ *Rinomodelação*\n` +
-          `👃 Ajustes sutis no nariz sem cirurgia.\n\n` +
-          `5️⃣ *Preenchimento do Bigode Chinês*\n` +
-          `😊 Suaviza sulcos nasogenianos.\n\n` +
-          `6️⃣ *Preenchimento Mandibular*\n` +
-          `🦴 Define e contorna a mandíbula.\n\n` +
-          `7️⃣ *Bioestimulador de Colágeno*\n` +
-          `🧪 Melhora firmeza, textura e estimula colágeno.\n\n` +
-          `8️⃣ *Outros procedimentos*\n` +
-      `Digite o número da opção ou escreva o nome do procedimento.`
-        );
-        return res.status(200).send("harmonizacao_menu");
-      }
+// Usuário escolheu uma das opções do menu
+if (state.step === "menu") {
 
-      if (lower === "3") {
-        await sendMessage(from, "📍 Nosso endereço: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
-        await setUserState(from, state);
-        return res.status(200).send("address_sent");
-      }
+  if (lower === "1") {
+    state.step = "odontologia_menu";
+    await setUserState(from, state);
 
-      if (lower === "4") {
-        await sendMessage(from, "📞 Encaminhando para a Dra. Gabriela. Aguarde contato.");
-        await setUserState(from, state);
-        return res.status(200).send("forwarding");
-      }
+    await sendMessage(
+      from,
+      `🦷 *Serviços Odontológicos*\n\n` +
+        `1️⃣ Restauração em Resina\n` +
+        `2️⃣ Limpeza Dental\n` +
+        `3️⃣ Extração de Siso\n` +
+        `4️⃣ Clareamento Dental\n` +
+        `5️⃣ Outro serviço\n\n` +
+        `Digite o número da opção ou *menu* para voltar.`
+    );
+    return res.status(200).send("odontologia_menu");
+  }
 
-      // Se não entendeu
-      await sendMessage(from, "Digite *menu* para ver as opções.");
-      await setUserState(from, state);
-      return res.status(200).send("menu_prompt");
-    }
+  if (lower === "2") {
+    state.step = "harmonizacao_procedimento";
+    await setUserState(from, state);
+
+    await sendMessage(
+      from,
+      `✨ *Harmonização Facial*\n\nSelecione o procedimento:\n\n` +
+      `1️⃣ Preenchimento Labial\n` +
+      `2️⃣ Toxina Botulínica (Botox)\n` +
+      `3️⃣ Preenchimento Mentual\n` +
+      `4️⃣ Rinomodelação\n` +
+      `5️⃣ Preenchimento Bigode Chinês\n` +
+      `6️⃣ Preenchimento Mandibular\n` +
+      `7️⃣ Bioestimulador de Colágeno\n` +
+      `8️⃣ Outros procedimentos`
+    );
+
+    return res.status(200).send("harmonizacao_menu");
+  }
+
+  if (lower === "3") {
+    await sendMessage(from, "📍 Nosso endereço: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
+    return res.status(200).send("address_sent");
+  }
+
+  if (lower === "4") {
+    await sendMessage(from, "📞 Encaminhando para a Dra. Gabriela. Aguarde contato.");
+    return res.status(200).send("forwarding");
+  }
+
+  // Se usuário digitou algo diferente de 1, 2, 3 ou 4
+  await sendMessage(from, "Opção inválida. Digite *menu* para ver as opções.");
+  return res.status(200).send("menu_invalid");
+}
+
 
     // ---------- SUBMENU ODONTOLOGIA ----------
     if (state.step === "odontologia_menu") {
