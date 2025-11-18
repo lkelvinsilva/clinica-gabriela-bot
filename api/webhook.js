@@ -136,6 +136,7 @@ export default async function handler(req, res) {
             `Digite apenas o número da opção.`
         );
         await setUserState(from, state);
+        return res.status(200).send("forced_menu");
         return res.status(200).send("menu_sent");
       }
 
