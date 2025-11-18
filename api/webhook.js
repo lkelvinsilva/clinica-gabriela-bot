@@ -4,18 +4,19 @@ import { isTimeSlotFree, createEvent } from "../utils/googleCalendar.js";
 import { appendRow } from "../utils/googleSheets.js";
 
 // ---------------------- PARSE DE DATA ----------------------
+// Recebe "DD/MM/YYYY HH:MM" ou "DD/MM/YYYY HH:MM" com 'às' opcional.
+// Retorna ISO string (UTC-03:00) compatível com seu calendário.
 function parseDateTime(text) {
   const m = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(?:às\s*)?(\d{1,2}):(\d{2})/i);
   if (!m) return null;
-
-  const [_, d, mo, y, hh, mm] = m;
-
-  return new Date(
-    `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}T${hh.padStart(2, "0")}:${mm}:00-03:00`
-  ).toISOString();
+  const [, d, mo, y, hh, mm] = m;
+  // Cria Date no timezone local do servidor e converte para ISO (mantendo offset -03:00 no texto original)
+  // Para consistência com seu createEvent, retornamos ISO UTC string.
+  const iso = new Date(`${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}T${hh.padStart(2, "0")}:${mm}:00-03:00`).toISOString();
+  return iso;
 }
 
-// ---------------------- ENVIO DE MENSAGEM ----------------------
+// ---------------------- ENVIO DE MENSAGEM SIMPLES ----------------------
 async function sendMessage(to, text) {
   try {
     await axios.post(
@@ -34,30 +35,52 @@ async function sendMessage(to, text) {
       }
     );
   } catch (err) {
-    console.error("Erro ao enviar mensagem:", err?.response?.data || err);
+    console.error("Erro ao enviar mensagem (sendMessage):", err?.response?.data || err);
+  }
+}
+
+// ---------------------- ENVIO DE BOTÕES INTERATIVOS ----------------------
+async function sendButtons(to, question, buttons) {
+  // buttons: [{ id: 'sim_agendar', title: 'Sim' }, ...]
+  try {
+    await axios.post(
+      `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: "whatsapp",
+        to,
+        type: "interactive",
+        interactive: {
+          type: "button",
+          body: { text: question },
+          action: {
+            buttons: buttons.map((b) => ({ type: "reply", reply: { id: b.id, title: b.title } })),
+          },
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  } catch (err) {
+    console.error("Erro ao enviar botões (sendButtons):", err?.response?.data || err);
   }
 }
 
 // ---------------------- HANDLER ----------------------
 export default async function handler(req, res) {
-  // ---------- PING DO GITHUB ACTIONS ----------
-  if (req.method === "GET" && req.query.ping) {
-    if (req.query.ping === process.env.PING_TOKEN) {
-      return res.status(200).send("pong");
-    }
-    return res.status(403).send("invalid");
-  }
-
-  // ---------- VERIFICAÇÃO DO WEBHOOK ----------
+  // Verificação webhook (GET)
   if (req.method === "GET") {
     const mode = req.query["hub.mode"];
     const token = req.query["hub.verify_token"];
     const challenge = req.query["hub.challenge"];
 
+    // Se usa outro env var, ajuste acima
     if (mode === "subscribe" && token === process.env.VERIFY_TOKEN) {
       return res.status(200).send(challenge);
     }
-
     return res.status(403).send("forbidden");
   }
 
@@ -67,149 +90,75 @@ export default async function handler(req, res) {
 
   try {
     const entry = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-
-    if (!entry) {
-      return res.status(200).send("no_message");
-    }
+    if (!entry) return res.status(200).send("no_message");
 
     const msgId = entry.id;
     const from = entry.from;
-    const text = (entry.text?.body || "").trim();
+    // Detecta texto normal, botão ou interactive reply id
+    const incomingText =
+      (entry.text && entry.text.body) ||
+      (entry.button && entry.button.payload) ||
+      entry.interactive?.button_reply?.id ||
+      "";
+    const text = String(incomingText).trim();
+    const lower = text.toLowerCase();
 
     if (!msgId || !from) return res.status(200).send("no_id");
 
-    // PREVENÇÃO DE DUPLICATAS
+    // Prevenção de duplicatas
     if (await isDuplicateMessage(msgId)) {
       console.log("Mensagem duplicada ignorada:", msgId);
       return res.status(200).send("duplicate");
     }
 
-    const state = await getUserState(from);
-    const lower = text.toLowerCase();
+    // Carrega estado atual ou inicializa
+    let state = (await getUserState(from)) || { step: "menu", temp: {} };
+    if (!state.step) state.step = "menu";
+    if (!state.temp) state.temp = {};
 
-    // ---------------------- MENU ----------------------
-    // Se não existir state, iniciar no menu
-      if (state.step === "menu") {
-      if (lower.includes("oi") || lower.includes("olá") || lower === "menu") {
+    // ---------- MENU PRINCIPAL ----------
+    // Mostrar menu quando o estado é menu e usuário pede 'menu' ou cumprimentos
+    if (state.step === "menu") {
+      if (lower === "menu" || lower.includes("oi") || lower.includes("olá") || lower.includes("bom dia") || lower.includes("boa tarde") || lower.includes("boa noite")) {
         await sendMessage(
           from,
-          `Olá! Seja bem vinda (o) 😊\n\nSou a assistente da Dra. Gabriela e estou aqui para te ajudar nesse inicio!Por favor, escolha uma das opções abaixo pra te direcionarmos melhor:\n` +          
+          `Olá! Seja bem vinda (o) 😊\n\nSou a assistente da Dra. Gabriela e estou aqui para te ajudar nesse inicio! Por favor, escolha uma das opções abaixo pra te direcionarmos melhor:\n` +          
             `1️⃣ Serviços odontológicos\n` +
             `2️⃣ Harmonização facial\n` +
             `3️⃣ Endereço\n` +
-            `4️⃣ Em caso de dúvida falar com a Dra. Gabriela\n\n` +
-            `Digite o número da opção.\n` 
-            
+            `4️⃣ Falar com a Dra. Gabriela\n\n` +
+            `Digite apenas o número da opção.`
         );
+        await setUserState(from, state);
         return res.status(200).send("menu_sent");
       }
 
-      if (lower === "1" || lower.includes("serviços") || lower.includes("odontológico")) {
-          state.step = "odontologia_procedimento";
-          await setUserState(from, state);
+      // Usuário escolheu uma das opções do menu
+      if (lower === "1") {
+        state.step = "odontologia_menu";
+        await setUserState(from, state);
 
-          await sendMessage(from,
-            `🦷 *Serviços Odontológicos*\n\n` +
-            `Escolha o procedimento desejado:\n\n` +
-            `1️⃣ *Restauração em Resina*\n` +
-            `2️⃣ *Limpeza Dental*\n` +
-            `3️⃣ *Extração de Siso*\n` +
-            `4️⃣ *Clareamento Dental*\n` +
-            `5️⃣ *Outro serviço*\n\n` +
-            `Digite o número da opção.`
-          );
-          return res.status(200).send("menu_odontologia");
-          }
-            if (state.step === "odontologia_procedimento") {
-            
-            const procedimentos = {
-              "1": "Restauração em Resina",
-              "2": "Limpeza Dental",
-              "3": "Extração de Siso",
-              "4": "Clareamento Dental",
-              "5": "Outro serviço"
-            };
-          
-              let escolhido = procedimentos[text];
-          
-              if (!escolhido) {
-                await sendMessage(from, "Por favor, envie apenas o *número* da opção desejada.");
-                return res.status(200).send("invalid_odontologia");
-              }
-          
-              state.temp.procedimento = escolhido;
-              state.step = "odontologia_confirmar_agendamento";
-              await setUserState(from, state);
-          
-              await axios.post(
-                `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
-                {
-                  messaging_product: "whatsapp",
-                  to: from,
-                  type: "interactive",
-                  interactive: {
-                    type: "button",
-                    body: { text: `Você escolheu *${escolhido}*.\nDeseja fazer um agendamento?` },
-                    action: {
-                      buttons: [
-                        { type: "reply", reply: { id: "sim_agendar", title: "Sim" } },
-                        { type: "reply", reply: { id: "nao_agendar", title: "Não" } }
-                      ]
-                    }
-                  }
-                },
-                {
-                  headers: {
-                    Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-                    "Content-Type": "application/json",
-                  },
-                }
-              );
-          
-              return res.status(200).send("odontologia_procedimento_ok");
-            }
-          // ---------------------- ODONTOLOGIA → CONFIRMAR AGENDAMENTO ----------------------
-      if (state.step === "odontologia_confirmar_agendamento") {
-        
-              const escolha = entry.button?.payload || entry.interactive?.button_reply?.id;
-        
-              if (!escolha) {
-                await sendMessage(from, "Escolha uma opção usando os botões 😊");
-                return res.status(200).send("invalid_button");
-              }
-        
-              if (escolha === "sim_agendar") {
-                state.step = "ask_datetime";
-                await setUserState(from, state);
-        
-                await sendMessage(
-                  from,
-                  `Perfeito! Vamos agendar sua consulta de *${state.temp.procedimento}*.\n\n` +
-                  `Envie a data e horário desejados.\nExemplo: 15/12/2025 14:00`
-                );
-                return res.status(200).send("agendamento_iniciado");
-              }
-        
-              if (escolha === "nao_agendar") {
-                await setUserState(from, { step: "menu", temp: {} });
-        
-                await sendMessage(
-                  from,
-                  `Tudo bem! 😊\nSe precisar de algo, basta digitar *menu*.`
-                );
-        
-                return res.status(200).send("voltar_menu");
-              }
-            }
+        await sendMessage(
+          from,
+          `🦷 *Serviços Odontológicos*\n\n` +
+            `1️⃣ Restauração em Resina\n` +
+            `2️⃣ Limpeza Dental\n` +
+            `3️⃣ Extração de Siso\n` +
+            `4️⃣ Clareamento Dental\n` +
+            `5️⃣ Outro serviço\n\n` +
+            `Digite o número da opção.\n` +
+            `Ou digite *menu* para voltar ao menu principal.`
+        );
+        return res.status(200).send("odontologia_menu");
+      }
 
-      if (lower === "2" || lower.includes("harmonizacao") || lower.includes("harmonização")) {
+      if (lower === "2") {
+        state.step = "harmonizacao_procedimento";
+        await setUserState(from, state);
 
-  state.step = "harmonizacao_procedimento";
-  await setUserState(from, state);
-
-  await sendMessage(
-    from,
-    `✨ *Harmonização Facial*\n\n` +
+        await sendMessage(
+          from,
+          `✨ *Harmonização Facial*\n\n` +
       `Escolha o procedimento desejado:\n\n` +
           `1️⃣ *Preenchimento Labial*\n` +
           `💋 Melhora o contorno, volume e hidratação dos lábios.\n\n` +
@@ -227,41 +176,114 @@ export default async function handler(req, res) {
           `🧪 Melhora firmeza, textura e estimula colágeno.\n\n` +
           `8️⃣ *Outros procedimentos*\n` +
       `Digite o número da opção ou escreva o nome do procedimento.`
-  );
-  return res.status(200).send("ok");
-}
- 
-      if (lower === "3" || lower.includes("endereço")) {
-        await sendMessage(
-          from,
-          "📍 Endereço: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE."
         );
-        return res.status(200).send("ok");
+        return res.status(200).send("harmonizacao_menu");
       }
 
-      await sendMessage(from, "Digite *menu* ou *1* para agendar.");
-      return res.status(200).send("ok");
+      if (lower === "3") {
+        await sendMessage(from, "📍 Nosso endereço: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
+        await setUserState(from, state);
+        return res.status(200).send("address_sent");
+      }
+
+      if (lower === "4") {
+        await sendMessage(from, "📞 Encaminhando para a Dra. Gabriela. Aguarde contato.");
+        await setUserState(from, state);
+        return res.status(200).send("forwarding");
+      }
+
+      // Se não entendeu
+      await sendMessage(from, "Digite *menu* para ver as opções.");
+      await setUserState(from, state);
+      return res.status(200).send("menu_prompt");
     }
 
-    // ---------------------- DATA/HORA ----------------------
-    if (state.step === "ask_datetime") {
-      const iso = parseDateTime(text);
+    // ---------- SUBMENU ODONTOLOGIA ----------
+    if (state.step === "odontologia_menu") {
+      // permitir 'menu' para voltar
+      if (lower === "menu") {
+        state.step = "menu";
+        await setUserState(from, state);
+        await sendMessage(from, "Voltando ao menu principal. Digite *menu* para exibir as opções.");
+        return res.status(200).send("back_to_menu");
+      }
 
+      const procedimentos = {
+        "1": "Restauração em Resina",
+        "2": "Limpeza Dental",
+        "3": "Extração de Siso",
+        "4": "Clareamento Dental",
+        "5": "Outro serviço",
+      };
+
+      const escolhido = procedimentos[lower];
+      if (!escolhido) {
+        await sendMessage(from, "❌ Opção inválida. Digite o número do procedimento ou *menu* para voltar.");
+        return res.status(200).send("invalid_odontologia_option");
+      }
+
+      state.temp.procedimento = escolhido;
+      state.step = "odontologia_confirmar_agendamento";
+      await setUserState(from, state);
+
+      // Envia botões Sim / Não
+      await sendButtons(from, `Você escolheu *${escolhido}*.\nDeseja fazer um agendamento?`, [
+        { id: "sim_agendar", title: "Sim" },
+        { id: "nao_agendar", title: "Não" },
+      ]);
+
+      return res.status(200).send("odontologia_choice_sent");
+    }
+
+    // ---------- CONFIRMAÇÃO AGENDAMENTO (após escolher procedimento) ----------
+    if (state.step === "odontologia_confirmar_agendamento") {
+      // Aqui o incoming text poderá ser 'sim_agendar' ou 'nao_agendar' vindo do button_reply id,
+      // ou o usuário pode escrever 'sim'/'não' em texto. Aceitamos ambos.
+      if (lower === "sim_agendar" || lower === "sim") {
+        state.step = "ask_datetime";
+        await setUserState(from, state);
+        await sendMessage(from, `Perfeito! Vamos agendar *${state.temp.procedimento}*.\nEnvie a data e horário desejados.\nExemplo: 15/12/2025 14:00`);
+        return res.status(200).send("start_ask_datetime");
+      }
+
+      if (lower === "nao_agendar" || lower === "não" || lower === "nao_agendar") {
+        // Volta somente ao submenu odontologia (não ao menu principal)
+        state.step = "odontologia_menu";
+        await setUserState(from, state);
+        await sendMessage(from, 
+        `Tudo bem! Aqui estão novamente as opções odontológicas:
+        1️⃣ Restauração em Resina
+        2️⃣ Limpeza Dental
+        3️⃣ Extração de Siso
+        4️⃣ Clareamento Dental
+        5️⃣ Outro serviço
+        Digite o número do procedimento ou *menu* para voltar ao principal.`);
+        return res.status(200).send("back_to_odontologia_menu");
+      }
+
+      // não entendeu
+      await sendMessage(from, "Por favor use os botões *Sim* ou *Não* ou escreva 'sim' / 'não'.");
+      return res.status(200).send("invalid_confirm_input");
+    }
+
+    // ---------- PEDIR DATA/HORA ----------
+    if (state.step === "ask_datetime") {
+      // Exemplo do usuário: "15/12/2025 14:00"
+      const iso = parseDateTime(text);
       if (!iso) {
-        await sendMessage(from, "Formato inválido. Tente assim: 15/12/2025 14:00");
-        return res.status(200).send("invalid_date");
+        await sendMessage(from, "Formato inválido. Envie no formato: DD/MM/AAAA HH:MM (ex: 15/12/2025 14:00)");
+        return res.status(200).send("invalid_date_format");
       }
 
       const startISO = iso;
-      const endISO = new Date(new Date(iso).getTime() + 60 * 60000).toISOString();
-
+      const endISO = new Date(new Date(iso).getTime() + 60 * 60000).toISOString(); // 1 hora
       let free;
       try {
         free = await isTimeSlotFree(startISO, endISO);
       } catch (err) {
-        console.error("Erro do Google Calendar:", err);
-        await sendMessage(from, "⚠ Não consegui verificar o horário. Tente novamente.");
-        return res.status(200).send("calendar_error");
+        console.error("Erro ao verificar disponibilidade:", err);
+        await sendMessage(from, "⚠️ Não consegui verificar o horário. Tente novamente mais tarde.");
+        return res.status(200).send("calendar_check_error");
       }
 
       if (!free) {
@@ -270,24 +292,30 @@ export default async function handler(req, res) {
       }
 
       state.temp.startISO = startISO;
+      state.temp.endISO = endISO;
       state.step = "ask_name";
       await setUserState(from, state);
 
       await sendMessage(from, "Ótimo! Agora envie seu *nome completo* para confirmar o agendamento.");
-      return res.status(200).send("ok");
+      return res.status(200).send("ask_name_sent");
     }
 
-    // ---------------------- NOME → AGENDAR ----------------------
+    // ---------- RECEBER NOME E CRIAR EVENTO ----------
     if (state.step === "ask_name") {
       const nome = text;
+      if (!nome || nome.length < 2) {
+        await sendMessage(from, "Por favor envie seu nome completo.");
+        return res.status(200).send("invalid_name");
+      }
+
       state.temp.name = nome;
 
+      // criar evento
       let event;
-
       try {
         event = await createEvent({
           summary: `Consulta - ${nome}`,
-          description: `Agendamento via WhatsApp — ${nome} (${from})`,
+          description: `Agendamento via WhatsApp — ${nome} (${from}) - Procedimento: ${state.temp.procedimento}`,
           startISO: state.temp.startISO,
           durationMinutes: 60,
         });
@@ -297,90 +325,107 @@ export default async function handler(req, res) {
       }
 
       if (!event) {
-        await sendMessage(from, "❌ Erro ao agendar. Tente novamente.");
+        await sendMessage(from, "❌ Erro ao agendar. Tente novamente mais tarde.");
         state.step = "menu";
+        state.temp = {};
         await setUserState(from, state);
         return res.status(200).send("event_error");
       }
 
-      // Salva na planilha
+      // salva na planilha (evita travar por causa de erro)
       try {
         await appendRow([
           new Date().toLocaleString(),
           from,
           nome,
+          state.temp.procedimento,
           state.temp.startISO,
           event.htmlLink || "",
         ]);
       } catch (err) {
-        console.error("Erro ao escrever na planilha:", err);
+        console.error("Erro ao salvar na planilha:", err);
       }
 
-      const startLocal = new Date(state.temp.startISO).toLocaleString("pt-BR", {
-        timeZone: "America/Fortaleza",
-      });
+      // confirma ao usuário
+      const startLocal = new Date(state.temp.startISO).toLocaleString("pt-BR", { timeZone: "America/Fortaleza" });
+      await sendMessage(from, `✅ *Agendamento confirmado!*\n\n👤 ${nome}\n📅 ${startLocal}\nProcedimento: ${state.temp.procedimento}\n⏱️ Duração: 1h\n\nSe precisar remarcar, entre em contato.`);
 
-      await sendMessage(
-        from,
-        `✅ *Consulta confirmada!*\n\n👤 ${nome}\n📅 ${startLocal}\n⏰ 1h de duração\n\nSe precisar remarcar, basta enviar uma mensagem.`
-      );
+      // Pergunta se deseja mais alguma coisa com botões
+      state.step = "perguntar_algo_mais";
+      await setUserState(from, state);
 
+      await sendButtons(from, "Quer minha ajuda com mais alguma coisa?", [
+        { id: "help_sim", title: "Sim" },
+        { id: "help_nao", title: "Não" },
+      ]);
+
+      return res.status(200).send("agendamento_confirmado");
+    }
+
+    // ---------- PERGUNTAR SE QUER MAIS ALGO ----------
+    if (state.step === "perguntar_algo_mais") {
+      if (lower === "help_sim" || lower === "sim") {
+        state.step = "menu";
+        state.temp = {};
+        await setUserState(from, state);
+        await sendMessage(from, "Perfeito! Digite *menu* para ver as opções novamente.");
+        return res.status(200).send("back_to_menu");
+      }
+
+      if (lower === "help_nao" || lower === "não" || lower === "nao") {
+        await sendMessage(from, "Foi um prazer ajudar! 😊 Até logo.");
+        state.step = "menu";
+        state.temp = {};
+        await setUserState(from, state);
+        return res.status(200).send("end_convo");
+      }
+
+      await sendMessage(from, "Use os botões *Sim* ou *Não* ou escreva 'sim' / 'não'.");
+      return res.status(200).send("invalid_help_choice");
+    }
+
+    // ---------- HARMONIZAÇÃO (redirecionamento como antes) ----------
+    if (state.step === "harmonizacao_procedimento") {
+      const procedimentos = {
+        "1": "Preenchimento Labial",
+        "2": "Toxina Botulínica (Botox)",
+        "3": "Preenchimento Mentual",
+        "4": "Rinomodelação",
+        "5": "Preenchimento Bigode Chinês",
+        "6": "Preenchimento Mandibular",
+        "7": "Bioestimulador de Colágeno",
+        "8": "Outros procedimentos",
+      };
+
+      let escolhido = procedimentos[text];
+      if (!escolhido) {
+        // detectar por nome (parcial)
+        const texto = text.toLowerCase();
+        for (const key in procedimentos) {
+          if (procedimentos[key].toLowerCase().includes(texto)) {
+            escolhido = procedimentos[key];
+            break;
+          }
+        }
+      }
+
+      if (!escolhido) {
+        await sendMessage(from, "Não consegui identificar o procedimento. Digite o número ou nome do procedimento.");
+        return res.status(200).send("invalid_proc");
+      }
+
+      // encaminhar para número pessoal (mantive sua lógica)
+      const numeroPessoal = "5585994160815"; // altere se necessário
+      const link = `https://wa.me/${85994160815}?text=Olá!%20Tenho%20interesse%20em:%20${encodeURIComponent(escolhido)}`;
+
+      await sendMessage(from, `✨ Perfeito! Vou te encaminhar para atendimento direto.\n\nClique no link abaixo para continuar:\n\n${link}`);
+      // volta ao menu principal
       await setUserState(from, { step: "menu", temp: {} });
-      return res.status(200).send("ok");
+      return res.status(200).send("redirect_done");
     }
-    // ---------------------- HARMONIZAÇÃO → REDIRECIONAR ----------------------
-if (state.step === "harmonizacao_procedimento") {
 
-  const procedimentos = {
-    "1": "Preenchimento Labial",
-    "2": "Toxina Botulínica (Botox)",
-    "3": "Preenchimento Mentual",
-    "4": "Rinomodelação",
-    "5": "Preenchimento Bigode Chinês",
-    "6": "Preenchimento Mandibular",
-    "7": "Bioestimulador de Colágeno",
-    "8": "Outros procedimentos",
-  };
-
-  let escolhido = procedimentos[text];
-
-  if (!escolhido) {
-    // detectar por nome
-    const texto = text.toLowerCase();
-
-    for (const key in procedimentos) {
-      if (procedimentos[key].toLowerCase().includes(texto)) {
-        escolhido = procedimentos[key];
-        break;
-      }
-    }
-  }
-
-  if (!escolhido) {
-    await sendMessage(from, "Não consegui identificar o procedimento. Digite o número ou nome.");
-    return res.status(200).send("invalid_proc");
-  }
-
-  // Número pessoal para encaminhar
-  const numeroPessoal = "5585994160815"; // 🔥 ALTERE PARA O NÚMERO DESEJADO
-
-  const link = `https://wa.me/${numeroPessoal}?text=Olá!%20Tenho%20interesse%20em:%20${encodeURIComponent(escolhido)}`;
-
-  await sendMessage(
-    from,
-    `✨ Perfeito! Vou te encaminhar para atendimento direto.\n\n` +
-      `Clique no link abaixo para continuar:\n\n${link}`
-  );
-
-  // volta ao menu
-  await setUserState(from, { step: "menu", temp: {} });
-
-  return res.status(200).send("redirect_done");
-}
-
-
-    // ---------------------- DEFAULT ----------------------
-    await sendMessage(from, "Não entendi. Digite *menu*.");
+    // ---------- DEFAULT ----------
+    await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
     return res.status(200).send("default");
   } catch (err) {
     console.error("Erro no webhook:", err);
