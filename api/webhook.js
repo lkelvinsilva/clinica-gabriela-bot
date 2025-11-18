@@ -137,7 +137,7 @@ if (
 
   await sendMessage(
     from,
-    `Olá! Seja bem vinda (o) 😊\n\nSou a assistente da Dra. Gabriela!\nEscolha uma das opções abaixo:\n\n` +          
+    `Olá! Seja bem vinda (o) 😊\n\nSou a assistente da Dra. Gabriela e estou aqui para te ajudar nesse inicio!Por favor, escolha uma das opções abaixo pra te direcionarmos melhor:\n` +                    
       `1️⃣ Serviços odontológicos\n` +
       `2️⃣ Harmonização facial\n` +
       `3️⃣ Endereço\n` +
@@ -175,22 +175,31 @@ if (state.step === "menu") {
 
     await sendMessage(
       from,
-      `✨ *Harmonização Facial*\n\nSelecione o procedimento:\n\n` +
-      `1️⃣ Preenchimento Labial\n` +
-      `2️⃣ Toxina Botulínica (Botox)\n` +
-      `3️⃣ Preenchimento Mentual\n` +
-      `4️⃣ Rinomodelação\n` +
-      `5️⃣ Preenchimento Bigode Chinês\n` +
-      `6️⃣ Preenchimento Mandibular\n` +
-      `7️⃣ Bioestimulador de Colágeno\n` +
-      `8️⃣ Outros procedimentos`
+      `✨ *Harmonização Facial*\n\n` +
+      `Escolha o procedimento desejado:\n\n` +
+          `1️⃣ *Preenchimento Labial*\n` +
+          `💋 Melhora o contorno, volume e hidratação dos lábios.\n\n` +
+          `2️⃣ *Toxina Botulínica (Botox)*\n` +
+          `✨ Suaviza rugas de expressão (testa, glabela e pés de galinha).\n\n` +
+          `3️⃣ *Preenchimento Mentual*\n` +
+          `🧬 Realça e projeta o queixo para mais harmonia facial.\n\n` +
+          `4️⃣ *Rinomodelação*\n` +
+          `👃 Ajustes sutis no nariz sem cirurgia.\n\n` +
+          `5️⃣ *Preenchimento do Bigode Chinês*\n` +
+          `😊 Suaviza sulcos nasogenianos.\n\n` +
+          `6️⃣ *Preenchimento Mandibular*\n` +
+          `🦴 Define e contorna a mandíbula.\n\n` +
+          `7️⃣ *Bioestimulador de Colágeno*\n` +
+          `🧪 Melhora firmeza, textura e estimula colágeno.\n\n` +
+          `8️⃣ *Outros procedimentos*\n` +
+      `Digite o número da opção ou escreva o nome do procedimento.`
     );
 
     return res.status(200).send("harmonizacao_menu");
   }
 
   if (lower === "3") {
-    await sendMessage(from, "📍 Nosso endereço: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
+    await sendMessage(from, "📍 Nosso endereço é: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
     return res.status(200).send("address_sent");
   }
 
