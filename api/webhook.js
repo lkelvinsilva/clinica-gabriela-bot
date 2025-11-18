@@ -94,7 +94,7 @@ export default async function handler(req, res) {
         await sendMessage(
           from,
           `Olá! Seja bem vinda (o) 😊\n\nSou a assistente da Dra. Gabriela e estou aqui para te ajudar nesse inicio!Por favor, escolha uma das opções abaixo pra te direcionarmos melhor:\n` +          
-            `1️⃣ Agendar consulta\n` +
+            `1️⃣ Serviços odontológicos\n` +
             `2️⃣ Harmonização facial\n` +
             `3️⃣ Endereço\n` +
             `4️⃣ Em caso de dúvida falar com a Dra. Gabriela\n\n` +
@@ -104,14 +104,23 @@ export default async function handler(req, res) {
         return res.status(200).send("menu_sent");
       }
 
-      if (lower === "1" || lower.includes("agendar")) {
-        state.step = "ask_datetime";
-        state.temp = {};
-        await setUserState(from, state);
+        if (lower === "1" || lower.includes("serviços") || lower.includes("odontológico")) {
+      state.step = "odontologia_procedimento";
+      await setUserState(from, state);
 
-        await sendMessage(from, "Perfeito! Envie a data e horário desejados.\nExemplo: 15/12/2025 14:00");
-        return res.status(200).send("ok");
+      await sendMessage(from,
+        `🦷 *Serviços Odontológicos*\n\n` +
+        `Escolha o procedimento desejado:\n\n` +
+        `1️⃣ *Restauração em Resina*\n` +
+        `2️⃣ *Limpeza Dental*\n` +
+        `3️⃣ *Extração de Siso*\n` +
+        `4️⃣ *Clareamento Dental*\n` +
+        `5️⃣ *Outro serviço*\n\n` +
+        `Digite o número da opção.`
+      );
+      return res.status(200).send("menu_odontologia");
       }
+
       if (lower === "2" || lower.includes("harmonizacao") || lower.includes("harmonização")) {
 
   state.step = "harmonizacao_procedimento";
@@ -140,6 +149,90 @@ export default async function handler(req, res) {
   );
   return res.status(200).send("ok");
 }
+// ---------------------- ODONTOLOGIA → ESCOLHA DO PROCEDIMENTO ----------------------
+if (state.step === "odontologia_procedimento") {
+  
+  const procedimentos = {
+    "1": "Restauração em Resina",
+    "2": "Limpeza Dental",
+    "3": "Extração de Siso",
+    "4": "Clareamento Dental",
+    "5": "Outro serviço"
+  };
+
+    let escolhido = procedimentos[text];
+
+    if (!escolhido) {
+      await sendMessage(from, "Por favor, envie apenas o *número* da opção desejada.");
+      return res.status(200).send("invalid_odontologia");
+    }
+
+    state.temp.procedimento = escolhido;
+    state.step = "odontologia_confirmar_agendamento";
+    await setUserState(from, state);
+
+    await axios.post(
+      `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: "whatsapp",
+        to: from,
+        type: "interactive",
+        interactive: {
+          type: "button",
+          body: { text: `Você escolheu *${escolhido}*.\nDeseja fazer um agendamento?` },
+          action: {
+            buttons: [
+              { type: "reply", reply: { id: "sim_agendar", title: "Sim" } },
+              { type: "reply", reply: { id: "nao_agendar", title: "Não" } }
+            ]
+          }
+        }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    return res.status(200).send("odontologia_procedimento_ok");
+  }
+  // ---------------------- ODONTOLOGIA → CONFIRMAR AGENDAMENTO ----------------------
+    if (state.step === "odontologia_confirmar_agendamento") {
+
+      const escolha = entry.button?.payload || entry.interactive?.button_reply?.id;
+
+      if (!escolha) {
+        await sendMessage(from, "Escolha uma opção usando os botões 😊");
+        return res.status(200).send("invalid_button");
+      }
+
+      if (escolha === "sim_agendar") {
+        state.step = "ask_datetime";
+        await setUserState(from, state);
+
+        await sendMessage(
+          from,
+          `Perfeito! Vamos agendar sua consulta de *${state.temp.procedimento}*.\n\n` +
+          `Envie a data e horário desejados.\nExemplo: 15/12/2025 14:00`
+        );
+        return res.status(200).send("agendamento_iniciado");
+      }
+
+      if (escolha === "nao_agendar") {
+        await setUserState(from, { step: "menu", temp: {} });
+
+        await sendMessage(
+          from,
+          `Tudo bem! 😊\nSe precisar de algo, basta digitar *menu*.`
+        );
+
+        return res.status(200).send("voltar_menu");
+      }
+    }
+
+
 
  
       if (lower === "3" || lower.includes("endereço")) {
