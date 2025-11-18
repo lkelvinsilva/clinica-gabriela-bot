@@ -102,6 +102,9 @@ export default async function handler(req, res) {
       "";
     const text = String(incomingText).trim();
     const lower = text.toLowerCase();
+    // Normaliza números (remove emojis, espaços e caracteres invisíveis)
+    const numeric = lower.replace(/[^0-9]/g, "");
+
 
     if (!msgId || !from) return res.status(200).send("no_id");
 
