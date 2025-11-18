@@ -121,7 +121,10 @@ export default async function handler(req, res) {
 
     // ---------- MENU PRINCIPAL ----------
     // Mostrar menu quando o estado é menu e usuário pede 'menu' ou cumprimentos
-    if (state.step === "menu") {
+    if (lower === "menu") {
+        state.step = "menu";
+        state.temp = {};
+        await setUserState(from, state);
       if (lower === "menu" || lower.includes("oi") || lower.includes("olá") || lower.includes("bom dia") || lower.includes("boa tarde") || lower.includes("boa noite")) {
         await sendMessage(
           from,
