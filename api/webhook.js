@@ -120,37 +120,7 @@ export default async function handler(req, res) {
       );
       return res.status(200).send("menu_odontologia");
       }
-
-      if (lower === "2" || lower.includes("harmonizacao") || lower.includes("harmonização")) {
-
-  state.step = "harmonizacao_procedimento";
-  await setUserState(from, state);
-
-  await sendMessage(
-    from,
-    `✨ *Harmonização Facial*\n\n` +
-      `Escolha o procedimento desejado:\n\n` +
-          `1️⃣ *Preenchimento Labial*\n` +
-          `💋 Melhora o contorno, volume e hidratação dos lábios.\n\n` +
-          `2️⃣ *Toxina Botulínica (Botox)*\n` +
-          `✨ Suaviza rugas de expressão (testa, glabela e pés de galinha).\n\n` +
-          `3️⃣ *Preenchimento Mentual*\n` +
-          `🧬 Realça e projeta o queixo para mais harmonia facial.\n\n` +
-          `4️⃣ *Rinomodelação*\n` +
-          `👃 Ajustes sutis no nariz sem cirurgia.\n\n` +
-          `5️⃣ *Preenchimento do Bigode Chinês*\n` +
-          `😊 Suaviza sulcos nasogenianos.\n\n` +
-          `6️⃣ *Preenchimento Mandibular*\n` +
-          `🦴 Define e contorna a mandíbula.\n\n` +
-          `7️⃣ *Bioestimulador de Colágeno*\n` +
-          `🧪 Melhora firmeza, textura e estimula colágeno.\n\n` +
-          `8️⃣ *Outros procedimentos*\n` +
-      `Digite o número da opção ou escreva o nome do procedimento.`
-  );
-  return res.status(200).send("ok");
-}
-// ---------------------- ODONTOLOGIA → ESCOLHA DO PROCEDIMENTO ----------------------
-      if (state.step === "odontologia_procedimento") {
+          if (state.step === "odontologia_procedimento") {
         
         const procedimentos = {
           "1": "Restauração em Resina",
@@ -231,7 +201,36 @@ export default async function handler(req, res) {
               return res.status(200).send("voltar_menu");
             }
           }
- 
+
+      if (lower === "2" || lower.includes("harmonizacao") || lower.includes("harmonização")) {
+
+  state.step = "harmonizacao_procedimento";
+  await setUserState(from, state);
+
+  await sendMessage(
+    from,
+    `✨ *Harmonização Facial*\n\n` +
+      `Escolha o procedimento desejado:\n\n` +
+          `1️⃣ *Preenchimento Labial*\n` +
+          `💋 Melhora o contorno, volume e hidratação dos lábios.\n\n` +
+          `2️⃣ *Toxina Botulínica (Botox)*\n` +
+          `✨ Suaviza rugas de expressão (testa, glabela e pés de galinha).\n\n` +
+          `3️⃣ *Preenchimento Mentual*\n` +
+          `🧬 Realça e projeta o queixo para mais harmonia facial.\n\n` +
+          `4️⃣ *Rinomodelação*\n` +
+          `👃 Ajustes sutis no nariz sem cirurgia.\n\n` +
+          `5️⃣ *Preenchimento do Bigode Chinês*\n` +
+          `😊 Suaviza sulcos nasogenianos.\n\n` +
+          `6️⃣ *Preenchimento Mandibular*\n` +
+          `🦴 Define e contorna a mandíbula.\n\n` +
+          `7️⃣ *Bioestimulador de Colágeno*\n` +
+          `🧪 Melhora firmeza, textura e estimula colágeno.\n\n` +
+          `8️⃣ *Outros procedimentos*\n` +
+      `Digite o número da opção ou escreva o nome do procedimento.`
+  );
+  return res.status(200).send("ok");
+}
+// ---------------------- ODONTOLOGIA → ESCOLHA DO PROCEDIMENTO ----------------------
       if (lower === "3" || lower.includes("endereço")) {
         await sendMessage(
           from,
