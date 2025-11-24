@@ -68,7 +68,12 @@ async function sendButtons(to, question, buttons) {
     console.error("Erro ao enviar botões (sendButtons):", err?.response?.data || err);
   }
 }
-
+async function perguntarAlgoMais(to) {
+  await sendButtons(to, "Posso ajudar com mais alguma coisa?", [
+    { id: "help_sim", title: "Sim" },
+    { id: "help_nao", title: "Não" },
+  ]);
+}
 // ---------------------- HANDLER ----------------------
 
 export default async function handler(req, res) {
@@ -205,13 +210,20 @@ if (state.step === "menu") {
           `8️⃣ *Outros procedimentos*\n` +
       `Digite o número da opção ou escreva o nome do procedimento.`
     );
-
-    return res.status(200).send("harmonizacao_menu");
+    
+    await perguntarAlgoMais(from);
+    state.step = "perguntar_algo_mais";
+    await setUserState(from, state);
+    return res.status(200).send("ask_more");
   }
 
   if (lower === "3") {
     await sendMessage(from, "📍 Nosso endereço é: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
-    return res.status(200).send("address_sent");
+    await perguntarAlgoMais(from);
+    state.step = "perguntar_algo_mais";
+    await setUserState(from, state);
+    return res.status(200).send("ask_more");
+
   }
 
   if (lower === "4") {
@@ -225,9 +237,12 @@ if (state.step === "menu") {
     `👉 Clique no link abaixo para falar diretamente com ela no WhatsApp:\n${link}`
   );
 
-  return res.status(200).send("forwarding");
-}
+  await perguntarAlgoMais(from);
+  state.step = "perguntar_algo_mais";
+  await setUserState(from, state);
+  return res.status(200).send("ask_more");
 
+}
 
   // Se usuário digitou algo diferente de 1, 2, 3 ou 4
   await sendMessage(from, "Opção inválida. Digite *menu* para ver as opções.");
