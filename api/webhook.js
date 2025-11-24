@@ -110,17 +110,6 @@ export default async function handler(req, res) {
     const lower = text.toLowerCase();
     // Normaliza números (remove emojis, espaços e caracteres invisíveis)
     const numeric = lower.replace(/[^0-9]/g, "");
-    // -------- COMANDO DE SAÍDA / ENCERRAR ATENDIMENTO ----------
-    if (["sair", "encerrar", "finalizar", "cancelar", "0"].includes(lower)) {
-      await sendMessage(
-        from,
-        "😊 Atendimento encerrado.\n\nSe precisar de algo, é só digitar *menu*."
-      );
-    
-      await setUserState(from, { step: "menu", temp: {} });
-      return res.status(200).send("session_ended");
-    }
-
 
     if (!msgId || !from) return res.status(200).send("no_id");
 
@@ -134,6 +123,18 @@ export default async function handler(req, res) {
     let state = (await getUserState(from)) || { step: "menu", temp: {} };
     if (!state.step) state.step = "menu";
     if (!state.temp) state.temp = {};
+
+        // -------- COMANDO DE SAÍDA / ENCERRAR ATENDIMENTO ----------
+    if (["sair", "encerrar", "finalizar", "cancelar", "0"].includes(lower)) {
+      await sendMessage(
+        from,
+        "😊 Atendimento encerrado.\n\nSe precisar de algo, é só digitar *menu*."
+      );
+    
+      await setUserState(from, { step: "menu", temp: {} });
+      return res.status(200).send("session_ended");
+    }
+
 
     // ---------- MENU PRINCIPAL ----------
     // Mostrar menu quando o estado é menu e usuário pede 'menu' ou cumprimentos
