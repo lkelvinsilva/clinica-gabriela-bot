@@ -210,7 +210,7 @@ if (state.step === "menu") {
 
   await sendMessage(
     from,
-    `📞 Claro! Vou te encaminhar para a Dra. Gabriela.\n\n` +
+    `📞 Claro! Vou te encaminhar para a Dra. Gabriela. Aguarde Contato!\n\n` +
     `👉 Clique no link abaixo para falar diretamente com ela no WhatsApp:\n${link}`
   );
 
