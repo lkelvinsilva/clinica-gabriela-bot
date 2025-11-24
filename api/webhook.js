@@ -294,37 +294,51 @@ if (state.step === "menu") {
 
     // ---------- PEDIR DATA/HORA ----------
     if (state.step === "ask_datetime") {
-      // Exemplo do usuário: "15/12/2025 14:00"
-      const iso = parseDateTime(text);
-      if (!iso) {
-        await sendMessage(from, "Formato inválido. Envie no formato: DD/MM/AAAA HH:MM (ex: 15/12/2025 14:00)");
-        return res.status(200).send("invalid_date_format");
-      }
-
-      const startISO = iso;
-      const endISO = new Date(new Date(iso).getTime() + 60 * 60000).toISOString(); // 1 hora
-      let free;
-      try {
-        free = await isTimeSlotFree(startISO, endISO);
-      } catch (err) {
-        console.error("Erro ao verificar disponibilidade:", err);
-        await sendMessage(from, "⚠️ Não consegui verificar o horário. Tente novamente mais tarde.");
-        return res.status(200).send("calendar_check_error");
-      }
-
-      if (!free) {
-        await sendMessage(from, "❌ Esse horário está ocupado. Envie outro horário.");
-        return res.status(200).send("busy");
-      }
-
-      state.temp.startISO = startISO;
-      state.temp.endISO = endISO;
-      state.step = "ask_name";
-      await setUserState(from, state);
-
-      await sendMessage(from, "Ótimo! Agora envie seu *nome completo* para confirmar o agendamento.");
-      return res.status(200).send("ask_name_sent");
+  // Exemplo do usuário: "15/12/2025 14:00"
+    const iso = parseDateTime(text);
+    if (!iso) {
+      await sendMessage(from, "Formato inválido. Envie no formato: DD/MM/AAAA HH:MM (ex: 15/12/2025 14:00)");
+      return res.status(200).send("invalid_date_format");
     }
+  
+    // ⚠️ BLOQUEIO DE TERÇAS (2) E SEXTAS (5)
+    const dataLocal = new Date(iso);
+    const diaSemana = dataLocal.getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
+  
+    if (diaSemana === 2 || diaSemana === 5) {
+      await sendMessage(
+        from,
+        "❌ Não realizo atendimentos às *terças* e *sextas-feiras*.\nPor favor, envie outra data. 😊"
+      );
+      return res.status(200).send("day_blocked");
+    }
+  
+    const startISO = iso;
+    const endISO = new Date(new Date(iso).getTime() + 60 * 60000).toISOString(); // 1 hora
+    let free;
+  
+    try {
+      free = await isTimeSlotFree(startISO, endISO);
+    } catch (err) {
+      console.error("Erro ao verificar disponibilidade:", err);
+      await sendMessage(from, "⚠️ Não consegui verificar o horário. Tente novamente mais tarde.");
+      return res.status(200).send("calendar_check_error");
+    }
+  
+    if (!free) {
+      await sendMessage(from, "❌ Esse horário está ocupado. Envie outro horário.");
+      return res.status(200).send("busy");
+    }
+  
+    state.temp.startISO = startISO;
+    state.temp.endISO = endISO;
+    state.step = "ask_name";
+    await setUserState(from, state);
+  
+    await sendMessage(from, "Ótimo! Agora envie seu *nome completo* para confirmar o agendamento.");
+    return res.status(200).send("ask_name_sent");
+  }
+
 
     // ---------- RECEBER NOME E CRIAR EVENTO ----------
     if (state.step === "ask_name") {
