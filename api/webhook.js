@@ -204,9 +204,19 @@ if (state.step === "menu") {
   }
 
   if (lower === "4") {
-    await sendMessage(from, "📞 Encaminhando para a Dra. Gabriela. Aguarde contato.");
-    return res.status(200).send("forwarding");
-  }
+  const numero = "5585994160815"; // coloque aqui o número correto da Dra.
+  const mensagem = encodeURIComponent("Olá! Gostaria de falar com você.");
+  const link = `https://wa.me/${numero}?text=${mensagem}`;
+
+  await sendMessage(
+    from,
+    `📞 Claro! Vou te encaminhar para a Dra. Gabriela.\n\n` +
+    `👉 Clique no link abaixo para falar diretamente com ela no WhatsApp:\n${link}`
+  );
+
+  return res.status(200).send("forwarding");
+}
+
 
   // Se usuário digitou algo diferente de 1, 2, 3 ou 4
   await sendMessage(from, "Opção inválida. Digite *menu* para ver as opções.");
