@@ -70,16 +70,6 @@ async function sendButtons(to, question, buttons) {
 }
 
 // ---------------------- HANDLER ----------------------
-// -------- Comando de saída ----------
-if (["sair", "0", "encerrar", "finalizar", "cancelar"].includes(lower)) {
-  await sendMessage(
-    from,
-    "😊 Atendimento encerrado.\n\nSe precisar de algo, basta digitar *menu*."
-  );
-
-  await setUserState(from, { step: "menu", temp: {} });
-  return res.status(200).send("session_ended");
-}
 
 export default async function handler(req, res) {
   // Verificação webhook (GET)
