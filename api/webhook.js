@@ -211,11 +211,15 @@ if (state.step === "menu") {
           `8️⃣ *Outros procedimentos*\n` +
       `Digite o número da opção ou escreva o nome do procedimento.`
     );
-    
+        const numero = "5585994160815"; // coloque aqui o número correto da Dra.
+        const mensagem = encodeURIComponent("Olá! Gostaria de falar com você.");
+        const link = `https://wa.me/${numero}?text=${mensagem}`;
+
     await perguntarAlgoMais(from);
     state.step = "perguntar_algo_mais";
     await setUserState(from, state);
     return res.status(200).send("ask_more");
+
   }
 
   if (lower === "3") {
