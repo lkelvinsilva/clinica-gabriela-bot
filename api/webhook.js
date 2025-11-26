@@ -216,44 +216,52 @@ if (lower === "2") {
 }
 // ----------------- HARMONIZAÇÃO — DIRECIONAR PARA WHATSAPP -----------------
 if (state.step === "harmonizacao_procedimento") {
-      const procedimentos = {
-        "1": "Preenchimento Labial",
-        "2": "Toxina Botulínica (Botox)",
-        "3": "Preenchimento Mentual",
-        "4": "Rinomodelação",
-        "5": "Preenchimento Bigode Chinês",
-        "6": "Preenchimento Mandibular",
-        "7": "Bioestimulador de Colágeno",
-        "8": "Outros procedimentos",
-      };
 
-      let escolhido = procedimentos[text];
-      if (!escolhido) {
-        // detectar por nome (parcial)
-        const texto = text.toLowerCase();
-        for (const key in procedimentos) {
-          if (procedimentos[key].toLowerCase().includes(texto)) {
-            escolhido = procedimentos[key];
-            break;
-          }
-        }
-      }
+  // Se usuário digitou um número válido
+  if (["1","2","3","4","5","6","7","8"].includes(numeric)) {
 
-      if (!escolhido) {
-        await sendMessage(from, "Não consegui identificar o procedimento. Digite o número ou nome do procedimento.");
-        return res.status(200).send("invalid_proc");
-      }
+    const numero = "5585994160815"; // WhatsApp da Dra.
+    const mensagem = encodeURIComponent("Olá! Gostaria de mais informações sobre o procedimento.");
+    const link = `https://wa.me/${numero}?text=${mensagem}`;
 
-      // encaminhar para número pessoal (mantive sua lógica)
-      const numeroPessoal = "5585994160815"; // altere se necessário
-      const link = `https://wa.me/${numeroPessoal}?text=Olá!%20Tenho%20interesse%20em:%20${encodeURIComponent(escolhido)}`;
+    await sendMessage(
+      from,
+      `📞 Perfeito! Você será atendida diretamente pela Dra. Gabriela.\n\n` +
+      `👉 Clique aqui para falar com ela:\n${link}`
+    );
 
-      await sendMessage(from, `✨ Perfeito! Vou te encaminhar para atendimento direto.\n\nClique no link abaixo para continuar:\n\n${link}`);
-      // volta ao menu principal
-      await setUserState(from, { step: "menu", temp: {} });
-      return res.status(200).send("redirect_done");
-    }
+    // Pergunta se deseja encerrar
+    await sendButtons(from, "Deseja encerrar o atendimento?", [
+      { id: "end_sim", title: "Encerrar" },
+      { id: "end_nao", title: "Voltar ao Menu" },
+    ]);
 
+    state.step = "encerrar_fluxo";
+    await setUserState(from, state);
+    return res.status(200).send("sent_redirect_and_end_buttons");
+  }
+
+  await sendMessage(from, "Por favor, escolha um número de 1 a 8.");
+  return res.status(200).send("invalid_option");
+}
+// ----------- TRATAR ENCERRAMENTO ------------
+if (state.step === "encerrar_fluxo") {
+
+  if (lower === "end_sim") {
+    await sendMessage(from, "😊 Atendimento encerrado. Sempre que precisar é só chamar!");
+    await setUserState(from, { step: "menu", temp: {} });
+    return res.status(200).send("ended");
+  }
+
+  if (lower === "end_nao") {
+    state.step = "menu";
+    await setUserState(from, state);
+    await sendMessage(from, "Retornando ao menu... digite *menu*.");
+    return res.status(200).send("back_to_menu");
+  }
+
+  return res.status(200).send("invalid_end_choice");
+}
 
   if (lower === "3") {
     await sendMessage(from, "📍 Nosso endereço é: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
