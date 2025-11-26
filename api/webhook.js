@@ -254,14 +254,6 @@ if (state.step === "harmonizacao_procedimento") {
       return res.status(200).send("redirect_done");
     }
 
-    // ---------- DEFAULT ----------
-    await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
-    return res.status(200).send("default");
-  } catch (err) {
-    console.error("Erro no webhook:", err);
-    return res.status(500).send("internal_error");
-  }
-}
 
   if (lower === "3") {
     await sendMessage(from, "📍 Nosso endereço é: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
@@ -495,3 +487,12 @@ if (state.step === "harmonizacao_procedimento") {
       await sendMessage(from, "Use os botões *Sim* ou *Não* ou escreva 'sim' / 'não'.");
       return res.status(200).send("invalid_help_choice");
     }
+        // ---------- DEFAULT ----------
+    await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
+    return res.status(200).send("default");
+  } catch (err) {
+    console.error("Erro no webhook:", err);
+    return res.status(500).send("internal_error");
+  }
+}
+
