@@ -481,7 +481,7 @@ if (lower === "2" || lower.includes("harmonizacao") || lower.includes("harmoniza
 
       // encaminhar para número pessoal (mantive sua lógica)
       const numeroPessoal = "5585994160815"; // altere se necessário
-      const link = `https://wa.me/${85994160815}?text=Olá!%20Tenho%20interesse%20em:%20${encodeURIComponent(escolhido)}`;
+      const link = `https://wa.me/${numeroPessoal}?text=Olá!%20Tenho%20interesse%20em:%20${encodeURIComponent(escolhido)}`;
 
       await sendMessage(from, `✨ Perfeito! Vou te encaminhar para atendimento direto.\n\nClique no link abaixo para continuar:\n\n${link}`);
       // volta ao menu principal
