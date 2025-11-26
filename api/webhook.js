@@ -215,55 +215,7 @@ if (lower === "2" || lower.includes("harmonizacao") || lower.includes("harmoniza
 
   return res.status(200).send("ok");
 }
-// ----------------- HARMONIZAÇÃO — DIRECIONAR PARA WHATSAPP -----------------
-if (state.step === "harmonizacao_procedimento") {
 
-  const procedimentos = {
-    "1": "Preenchimento Labial",
-    "2": "Toxina Botulínica (Botox)",
-    "3": "Preenchimento Mentual",
-    "4": "Rinomodelação",
-    "5": "Preenchimento Bigode Chinês",
-    "6": "Preenchimento Mandibular",
-    "7": "Bioestimulador de Colágeno",
-    "8": "Outros procedimentos",
-  };
-
-  let escolhido = procedimentos[text];
-
-  if (!escolhido) {
-    // detectar por nome
-    const texto = text.toLowerCase();
-
-    for (const key in procedimentos) {
-      if (procedimentos[key].toLowerCase().includes(texto)) {
-        escolhido = procedimentos[key];
-        break;
-      }
-    }
-  }
-
-  if (!escolhido) {
-    await sendMessage(from, "Não consegui identificar o procedimento. Digite o número ou nome.");
-    return res.status(200).send("invalid_proc");
-  }
-
-  // Número pessoal para encaminhar
-  const numeroPessoal = "5585994160815"; // 🔥 ALTERE PARA O NÚMERO DESEJADO
-
-  const link = `https://wa.me/${numeroPessoal}?text=Olá!%20Tenho%20interesse%20em:%20${encodeURIComponent(escolhido)}`;
-
-  await sendMessage(
-    from,
-    `✨ Perfeito! Vou te encaminhar para atendimento direto.\n\n` +
-      `Clique no link abaixo para continuar:\n\n${link}`
-  );
-
-  // volta ao menu
-  await setUserState(from, { step: "menu", temp: {} });
-
-  return res.status(200).send("redirect_done");
-}
 
   if (lower === "3") {
     await sendMessage(from, "📍 Nosso endereço é: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
@@ -496,6 +448,45 @@ if (state.step === "harmonizacao_procedimento") {
 
       await sendMessage(from, "Use os botões *Sim* ou *Não* ou escreva 'sim' / 'não'.");
       return res.status(200).send("invalid_help_choice");
+    }
+        // ---------- HARMONIZAÇÃO (redirecionamento como antes) ----------
+    if (state.step === "harmonizacao_procedimento") {
+      const procedimentos = {
+        "1": "Preenchimento Labial",
+        "2": "Toxina Botulínica (Botox)",
+        "3": "Preenchimento Mentual",
+        "4": "Rinomodelação",
+        "5": "Preenchimento Bigode Chinês",
+        "6": "Preenchimento Mandibular",
+        "7": "Bioestimulador de Colágeno",
+        "8": "Outros procedimentos",
+      };
+
+      let escolhido = procedimentos[text];
+      if (!escolhido) {
+        // detectar por nome (parcial)
+        const texto = text.toLowerCase();
+        for (const key in procedimentos) {
+          if (procedimentos[key].toLowerCase().includes(texto)) {
+            escolhido = procedimentos[key];
+            break;
+          }
+        }
+      }
+
+      if (!escolhido) {
+        await sendMessage(from, "Não consegui identificar o procedimento. Digite o número ou nome do procedimento.");
+        return res.status(200).send("invalid_proc");
+      }
+
+      // encaminhar para número pessoal (mantive sua lógica)
+      const numeroPessoal = "5585994160815"; // altere se necessário
+      const link = `https://wa.me/${85994160815}?text=Olá!%20Tenho%20interesse%20em:%20${encodeURIComponent(escolhido)}`;
+
+      await sendMessage(from, `✨ Perfeito! Vou te encaminhar para atendimento direto.\n\nClique no link abaixo para continuar:\n\n${link}`);
+      // volta ao menu principal
+      await setUserState(from, { step: "menu", temp: {} });
+      return res.status(200).send("redirect_done");
     }
         // ---------- DEFAULT ----------
     await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
