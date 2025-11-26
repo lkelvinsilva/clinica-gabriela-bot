@@ -224,12 +224,6 @@ if (state.step === "harmonizacao_procedimento") {
     const mensagem = encodeURIComponent("Olá! Gostaria de mais informações sobre o procedimento.");
     const link = `https://wa.me/${numero}?text=${mensagem}`;
 
-    await sendMessage(
-      from,
-      `📞 Perfeito! Você será atendida diretamente pela Dra. Gabriela.\n\n` +
-      `👉 Clique aqui para falar com ela:\n${link}`
-    );
-
     // Pergunta se deseja encerrar
     await sendButtons(from, "Deseja encerrar o atendimento?", [
       { id: "end_sim", title: "Encerrar" },
