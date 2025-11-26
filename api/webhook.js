@@ -186,41 +186,82 @@ if (state.step === "menu") {
     return res.status(200).send("odontologia_menu");
   }
 
-  if (lower === "2") {
-    state.step = "harmonizacao_procedimento";
-    await setUserState(from, state);
+if (lower === "2") {
+  state.step = "harmonizacao_procedimento";
+  await setUserState(from, state);
+
+  await sendMessage(
+    from,
+    `✨ *Harmonização Facial*\n\n` +
+      `Escolha o procedimento desejado:\n\n` +
+      `1️⃣ *Preenchimento Labial*\n` +
+      `💋 Melhora o contorno, volume e hidratação dos lábios.\n\n` +
+      `2️⃣ *Toxina Botulínica (Botox)*\n` +
+      `✨ Suaviza rugas de expressão (testa, glabela e pés de galinha).\n\n` +
+      `3️⃣ *Preenchimento Mentual*\n` +
+      `🧬 Realça e projeta o queixo para mais harmonia facial.\n\n` +
+      `4️⃣ *Rinomodelação*\n` +
+      `👃 Ajustes sutis no nariz sem cirurgia.\n\n` +
+      `5️⃣ *Preenchimento do Bigode Chinês*\n` +
+      `😊 Suaviza sulcos nasogenianos.\n\n` +
+      `6️⃣ *Preenchimento Mandibular*\n` +
+      `🦴 Define e contorna a mandíbula.\n\n` +
+      `7️⃣ *Bioestimulador de Colágeno*\n` +
+      `🧪 Melhora firmeza, textura e estimula colágeno.\n\n` +
+      `8️⃣ *Outros procedimentos*\n\n` +
+      `Digite o número da opção.`
+  );
+
+  return res.status(200).send("harmonizacao_list");
+}
+// ----------------- HARMONIZAÇÃO — DIRECIONAR PARA WHATSAPP -----------------
+if (state.step === "harmonizacao_procedimento") {
+
+  // Se usuário digitou um número válido
+  if (["1","2","3","4","5","6","7","8"].includes(numeric)) {
+
+    const numero = "5585994160815"; // WhatsApp da Dra.
+    const mensagem = encodeURIComponent("Olá! Gostaria de mais informações sobre o procedimento.");
+    const link = `https://wa.me/${numero}?text=${mensagem}`;
 
     await sendMessage(
       from,
-      `✨ *Harmonização Facial*\n\n` +
-      `Escolha o procedimento desejado:\n\n` +
-          `1️⃣ *Preenchimento Labial*\n` +
-          `💋 Melhora o contorno, volume e hidratação dos lábios.\n\n` +
-          `2️⃣ *Toxina Botulínica (Botox)*\n` +
-          `✨ Suaviza rugas de expressão (testa, glabela e pés de galinha).\n\n` +
-          `3️⃣ *Preenchimento Mentual*\n` +
-          `🧬 Realça e projeta o queixo para mais harmonia facial.\n\n` +
-          `4️⃣ *Rinomodelação*\n` +
-          `👃 Ajustes sutis no nariz sem cirurgia.\n\n` +
-          `5️⃣ *Preenchimento do Bigode Chinês*\n` +
-          `😊 Suaviza sulcos nasogenianos.\n\n` +
-          `6️⃣ *Preenchimento Mandibular*\n` +
-          `🦴 Define e contorna a mandíbula.\n\n` +
-          `7️⃣ *Bioestimulador de Colágeno*\n` +
-          `🧪 Melhora firmeza, textura e estimula colágeno.\n\n` +
-          `8️⃣ *Outros procedimentos*\n` +
-      `Digite o número da opção ou escreva o nome do procedimento.`
+      `📞 Perfeito! Você será atendida diretamente pela Dra. Gabriela.\n\n` +
+      `👉 Clique aqui para falar com ela:\n${link}`
     );
-        const numero = "5585994160815"; // coloque aqui o número correto da Dra.
-        const mensagem = encodeURIComponent("Olá! Gostaria de falar com você.");
-        const link = `https://wa.me/${numero}?text=${mensagem}`;
 
-    await perguntarAlgoMais(from);
-    state.step = "perguntar_algo_mais";
+    // Pergunta se deseja encerrar
+    await sendButtons(from, "Deseja encerrar o atendimento?", [
+      { id: "end_sim", title: "Encerrar" },
+      { id: "end_nao", title: "Voltar ao Menu" },
+    ]);
+
+    state.step = "encerrar_fluxo";
     await setUserState(from, state);
-    return res.status(200).send("ask_more");
-
+    return res.status(200).send("sent_redirect_and_end_buttons");
   }
+
+  await sendMessage(from, "Por favor, escolha um número de 1 a 8.");
+  return res.status(200).send("invalid_option");
+}
+// ----------- TRATAR ENCERRAMENTO ------------
+if (state.step === "encerrar_fluxo") {
+
+  if (lower === "end_sim") {
+    await sendMessage(from, "😊 Atendimento encerrado. Sempre que precisar é só chamar!");
+    await setUserState(from, { step: "menu", temp: {} });
+    return res.status(200).send("ended");
+  }
+
+  if (lower === "end_nao") {
+    state.step = "menu";
+    await setUserState(from, state);
+    await sendMessage(from, "Retornando ao menu... digite *menu*.");
+    return res.status(200).send("back_to_menu");
+  }
+
+  return res.status(200).send("invalid_end_choice");
+}
 
   if (lower === "3") {
     await sendMessage(from, "📍 Nosso endereço é: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
