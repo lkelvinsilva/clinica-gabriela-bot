@@ -223,7 +223,11 @@ if (state.step === "harmonizacao_procedimento") {
     const numero = "5585992883317"; // WhatsApp da Dra.
     const mensagem = encodeURIComponent("Olá! Gostaria de mais informações sobre o procedimento.");
     const link = `https://wa.me/${numero}?text=${mensagem}`;
-
+// Primeiro envia mensagem com link (isolado, para não quebrar)
+    await sendMessage(
+      from,
+      `✨ Perfeito! Para receber mais informações sobre este procedimento, fale diretamente com a Dra. Gabriela:\n\n👉 ${link}`
+    );
     // Pergunta se deseja encerrar
     await sendButtons(from, "Deseja encerrar o atendimento?", [
       { id: "end_sim", title: "Encerrar" },
