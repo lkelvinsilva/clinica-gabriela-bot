@@ -220,9 +220,9 @@ if (state.step === "harmonizacao_procedimento") {
   // Se usuário digitou um número válido
   if (["1","2","3","4","5","6","7","8"].includes(numeric)) {
 
-    const numero = "5585992883317"; // WhatsApp da Dra.
-    const mensagem = encodeURIComponent("Olá! Gostaria de mais informações sobre o procedimento.");
-    const link = `https://wa.me/${numero}?text=${mensagem}`;
+  const numero = "5585994160815"; // coloque aqui o número correto da Dra.
+  const mensagem = encodeURIComponent("Olá! Gostaria de falar com você.");
+  const link = `https://wa.me/${numero}?text=${mensagem}`;
 // Primeiro envia mensagem com link (isolado, para não quebrar)
     await sendMessage(
       from,
