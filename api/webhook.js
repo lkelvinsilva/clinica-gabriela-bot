@@ -192,76 +192,29 @@ if (state.step === "menu") {
 
     await sendMessage(
       from,
-      `✨ *Harmonização Facial*\n\n` +
-        `Escolha o procedimento desejado:\n\n` +
-        `1️⃣ Preenchimento Labial\n` +
-        `2️⃣ Toxina Botulínica (Botox)\n` +
-        `3️⃣ Preenchimento Mentual\n` +
-        `4️⃣ Rinomodelação\n` +
-        `5️⃣ Preenchimento Bigode Chinês\n` +
-        `6️⃣ Preenchimento Mandibular\n` +
-        `7️⃣ Bioestimulador de Colágeno\n` +
-        `8️⃣ Outros procedimentos\n\n` +
-        `Digite o número da opção.`
+          `✨ *Harmonização Facial*\n\n` +
+      `Escolha o procedimento desejado:\n\n` +
+          `1️⃣ *Preenchimento Labial*\n` +
+          `💋 Melhora o contorno, volume e hidratação dos lábios.\n\n` +
+          `2️⃣ *Toxina Botulínica (Botox)*\n` +
+          `✨ Suaviza rugas de expressão (testa, glabela e pés de galinha).\n\n` +
+          `3️⃣ *Preenchimento Mentual*\n` +
+          `🧬 Realça e projeta o queixo para mais harmonia facial.\n\n` +
+          `4️⃣ *Rinomodelação*\n` +
+          `👃 Ajustes sutis no nariz sem cirurgia.\n\n` +
+          `5️⃣ *Preenchimento do Bigode Chinês*\n` +
+          `😊 Suaviza sulcos nasogenianos.\n\n` +
+          `6️⃣ *Preenchimento Mandibular*\n` +
+          `🦴 Define e contorna a mandíbula.\n\n` +
+          `7️⃣ *Bioestimulador de Colágeno*\n` +
+          `🧪 Melhora firmeza, textura e estimula colágeno.\n\n` +
+          `8️⃣ *Outros procedimentos*\n` +
+      `Digite o número da opção ou escreva o nome do procedimento.`
     );
 
     return res.status(200).send("menu_option_2");
   
-  // Se chegou aqui → usuário digitou algo errado no MENU
-  await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
-  return res.status(200).send("invalid_menu");
-}
-// ----------------- HARMONIZAÇÃO — DIRECIONAR PARA WHATSAPP -----------------
-if (state.step === "harmonizacao_procedimento") {
-  const procedimentos = {
-    "1": "Preenchimento Labial",
-    "2": "Toxina Botulínica (Botox)",
-    "3": "Preenchimento Mentual",
-    "4": "Rinomodelação",
-    "5": "Preenchimento Bigode Chinês",
-    "6": "Preenchimento Mandibular",
-    "7": "Bioestimulador de Colágeno",
-    "8": "Outros procedimentos",
-  };
-
-  let escolhido = procedimentos[numeric];
-
-  if (!escolhido) {
-    const input = lower;
-    for (const key in procedimentos) {
-      if (procedimentos[key].toLowerCase().includes(input)) {
-        escolhido = procedimentos[key];
-        break;
-      }
-    }
-  }
-
-  if (!escolhido) {
-    await sendMessage(from, "Não consegui identificar o procedimento. Digite o número (1-8) ou escreva o nome do procedimento.");
-    return res.status(200).send("invalid_proc");
-  }
-
-  const numeroPessoal = "5585992883317";
-  const mensagem = encodeURIComponent(`Olá! Tenho interesse em: ${escolhido}`);
-  const link = `https://wa.me/${numeroPessoal}?text=${mensagem}`;
-
-  await sendMessage(
-    from,
-    `✨ *Perfeito!* ${escolhido}\n\n` +
-      `Clique no link para atendimento direto:\n\n${link}\n\n`
-  );
-
-  await sendButtons(from, "Deseja encerrar o atendimento?", [
-    { id: "end_sim", title: "Encerrar" },
-    { id: "end_nao", title: "Voltar ao Menu" },
-  ]);
-
-  state.step = "end_or_menu";
-  await setUserState(from, state);
-
-  return res.status(200).send("redirect_done");
-}
-
+ 
 
  
   if (lower === "3") {
@@ -496,6 +449,61 @@ if (state.step === "harmonizacao_procedimento") {
       await sendMessage(from, "Use os botões *Sim* ou *Não* ou escreva 'sim' / 'não'.");
       return res.status(200).send("invalid_help_choice");
     }
+   // Se chegou aqui → usuário digitou algo errado no MENU
+  await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
+  return res.status(200).send("invalid_menu");
+}
+// ----------------- HARMONIZAÇÃO — DIRECIONAR PARA WHATSAPP -----------------
+if (state.step === "harmonizacao_procedimento") {
+  const procedimentos = {
+    "1": "Preenchimento Labial",
+    "2": "Toxina Botulínica (Botox)",
+    "3": "Preenchimento Mentual",
+    "4": "Rinomodelação",
+    "5": "Preenchimento Bigode Chinês",
+    "6": "Preenchimento Mandibular",
+    "7": "Bioestimulador de Colágeno",
+    "8": "Outros procedimentos",
+  };
+
+  let escolhido = procedimentos[numeric];
+
+  if (!escolhido) {
+    const input = lower;
+    for (const key in procedimentos) {
+      if (procedimentos[key].toLowerCase().includes(input)) {
+        escolhido = procedimentos[key];
+        break;
+      }
+    }
+  }
+
+  if (!escolhido) {
+    await sendMessage(from, "Não consegui identificar o procedimento. Digite o número (1-8) ou escreva o nome do procedimento.");
+    return res.status(200).send("invalid_proc");
+  }
+
+  const numeroPessoal = "5585992883317";
+  const mensagem = encodeURIComponent(`Olá! Tenho interesse em: ${escolhido}`);
+  const link = `https://wa.me/${numeroPessoal}?text=${mensagem}`;
+
+  await sendMessage(
+    from,
+    `✨ *Perfeito!* ${escolhido}\n\n` +
+      `Clique no link para atendimento direto:\n\n${link}\n\n`
+  );
+
+  await sendButtons(from, "Deseja encerrar o atendimento?", [
+    { id: "end_sim", title: "Encerrar" },
+    { id: "end_nao", title: "Voltar ao Menu" },
+  ]);
+
+  state.step = "end_or_menu";
+  await setUserState(from, state);
+
+  return res.status(200).send("redirect_done");
+}
+
         // ---------- DEFAULT ----------
     await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
     return res.status(200).send("default");
