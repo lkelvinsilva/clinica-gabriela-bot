@@ -185,12 +185,7 @@ if (state.step === "menu") {
     );
     return res.status(200).send("odontologia_menu");
   }
-   // ---------------------- MENU PRINCIPAL ----------------------
-if (state.step === "menu") {
-  const lower = text.toLowerCase().trim();
-  const numeric = text.replace(/\D/g, "");
-
-  // OPÇÃO 2 → Harmonização Facial
+   // OPÇÃO 2 → Harmonização Facial
   if (lower === "2" || lower.includes("harmonizacao") || lower.includes("harmonização")) {
     state.step = "harmonizacao_procedimento";
     await setUserState(from, state);
@@ -211,8 +206,7 @@ if (state.step === "menu") {
     );
 
     return res.status(200).send("menu_option_2");
-  }
-
+  
   // Se chegou aqui → usuário digitou algo errado no MENU
   await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
   return res.status(200).send("invalid_menu");
