@@ -490,16 +490,32 @@ if (state.step === "harmonizacao_procedimento") {
       `Clique no link para atendimento direto:\n\n${link}\n\n`
   );
 
-  await sendButtons(from, "Deseja encerrar o atendimento?", [
-    { id: "end_sim", title: "Encerrar" },
-    { id: "end_nao", title: "Voltar ao Menu" },
-  ]);
+if (state.step === "perguntar_algo_mais") {
+      if (lower === "help_sim" || lower === "sim") {
+        state.step = "menu";
+        state.temp = {};
+        await setUserState(from, state);
+        await sendMessage(from, "Perfeito! Digite *menu* para ver as opções novamente.");
+        return res.status(200).send("back_to_menu");
+      }
 
-  state.step = "end_or_menu";
-  await setUserState(from, state);
+      if (lower === "help_nao" || lower === "não" || lower === "nao") {
+        await sendMessage(from, "Foi um prazer ajudar! 😊 Até logo.");
+        state.step = "menu";
+        state.temp = {};
+        await setUserState(from, state);
+        return res.status(200).send("end_convo");
+      }
 
-  return res.status(200).send("redirect_done");
+      await sendMessage(from, "Use os botões *Sim* ou *Não* ou escreva 'sim' / 'não'.");
+      return res.status(200).send("invalid_help_choice");
+    }
+     // Se chegou aqui → usuário digitou algo errado no MENU
+  await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
+  return res.status(200).send("invalid_menu");
+
 }
+
 
         // ---------- DEFAULT ----------
     await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
