@@ -186,33 +186,34 @@ if (state.step === "menu") {
     return res.status(200).send("odontologia_menu");
   }
    // OPÇÃO 2 → Harmonização Facial
-  if (lower === "2" || lower.includes("harmonizacao") || lower.includes("harmonização")) {
-    state.step = "harmonizacao_procedimento";
-    await setUserState(from, state);
-
+  if (
+    lower === "2" ||
+    lower.includes("harmonizacao") ||
+    lower.includes("harmonização")
+  ) {
     await sendMessage(
       from,
-          `✨ *Harmonização Facial*\n\n` +
+      `✨ *Harmonização Facial*\n\n` +
       `Escolha o procedimento desejado:\n\n` +
-          `1️⃣ *Preenchimento Labial*\n` +
-          `💋 Melhora o contorno, volume e hidratação dos lábios.\n\n` +
-          `2️⃣ *Toxina Botulínica (Botox)*\n` +
-          `✨ Suaviza rugas de expressão (testa, glabela e pés de galinha).\n\n` +
-          `3️⃣ *Preenchimento Mentual*\n` +
-          `🧬 Realça e projeta o queixo para mais harmonia facial.\n\n` +
-          `4️⃣ *Rinomodelação*\n` +
-          `👃 Ajustes sutis no nariz sem cirurgia.\n\n` +
-          `5️⃣ *Preenchimento do Bigode Chinês*\n` +
-          `😊 Suaviza sulcos nasogenianos.\n\n` +
-          `6️⃣ *Preenchimento Mandibular*\n` +
-          `🦴 Define e contorna a mandíbula.\n\n` +
-          `7️⃣ *Bioestimulador de Colágeno*\n` +
-          `🧪 Melhora firmeza, textura e estimula colágeno.\n\n` +
-          `8️⃣ *Outros procedimentos*\n` +
-      `Digite o número da opção ou escreva o nome do procedimento.`
+      `1️⃣ *Preenchimento Labial*\n` +
+      `💋 Melhora o contorno, volume e hidratação dos lábios.\n\n` +
+      `2️⃣ *Toxina Botulínica (Botox)*\n` +
+      `✨ Suaviza rugas de expressão.\n\n` +
+      `3️⃣ *Preenchimento Mentual*\n` +
+      `🧬 Realça o queixo.\n\n` +
+      `4️⃣ *Rinomodelação*\n` +
+      `👃 Ajustes no nariz.\n\n` +
+      `5️⃣ *Preenchimento Bigode Chinês*\n\n` +
+      `6️⃣ *Preenchimento Mandibular*\n\n` +
+      `7️⃣ *Bioestimulador de Colágeno*\n\n` +
+      `8️⃣ *Outros procedimentos*\n\n` +
+      `Digite apenas o número da opção.`
     );
 
-    return res.status(200).send("menu_option_2");
+    state.step = "harmonizacao_procedimento";
+    await setUserState(from, state);
+    return res.status(200).send("harmonizacao_menu");
+  }
  
   if (lower === "3") {
     await sendMessage(from, "📍 Nosso endereço é: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
