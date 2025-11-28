@@ -74,6 +74,8 @@ async function perguntarAlgoMais(to) {
     { id: "help_nao", title: "Não" },
   ]);
 }
+
+
 // ---------------------- HANDLER ----------------------
 
 export default async function handler(req, res) {
@@ -111,6 +113,7 @@ export default async function handler(req, res) {
     // Normaliza números (remove emojis, espaços e caracteres invisíveis)
     const numeric = lower.replace(/[^0-9]/g, "");
 
+
     if (!msgId || !from) return res.status(200).send("no_id");
 
     // Prevenção de duplicatas
@@ -124,20 +127,18 @@ export default async function handler(req, res) {
     if (!state.step) state.step = "menu";
     if (!state.temp) state.temp = {};
 
-        // -------- COMANDO DE SAÍDA / ENCERRAR ATENDIMENTO ----------
+            // -------- COMANDO DE SAÍDA / ENCERRAR ATENDIMENTO ----------
     if (["sair", "encerrar", "finalizar", "cancelar", "0"].includes(lower)) {
       await sendMessage(
         from,
         "😊 Atendimento encerrado.\n\nSe precisar de algo, é só digitar *menu*."
       );
-    
+
       await setUserState(from, { step: "menu", temp: {} });
       return res.status(200).send("session_ended");
     }
 
 
-    // ---------- MENU PRINCIPAL ----------
-    // Mostrar menu quando o estado é menu e usuário pede 'menu' ou cumprimentos
     // ---------- MENU PRINCIPAL ----------
 if (
   lower === "menu" ||
@@ -159,7 +160,7 @@ if (
       `2️⃣ Harmonização facial\n` +
       `3️⃣ Endereço\n` +
       `4️⃣ Falar com a Dra. Gabriela\n\n` +
-      `Digite apenas o número da opção ou digite "sair" para encerrar o atendimento`
+      `Digite apenas o número da opção ou digite sair para encerrar o atendimento`
   );
 
   return res.status(200).send("menu_sent");
@@ -185,7 +186,21 @@ if (state.step === "menu") {
     );
     return res.status(200).send("odontologia_menu");
   }
-   // OPÇÃO 2 → Harmonização Facial
+
+  // OPÇÃO 2 → Harmonização Facial
+  // ---------------- MENU PRINCIPAL ----------------
+if (state.step === "menu") {
+
+  // Usuário digitou "sair"
+  if (lower === "sair") {
+    await sendMessage(from, "Atendimento encerrado 😊");
+    state.step = "menu";
+    state.temp = {};
+    await setUserState(from, state);
+    return res.status(200).send("sair");
+  }
+
+  // ---------- OPÇÃO 2 — HARMONIZAÇÃO FACIAL ----------
   if (
     lower === "2" ||
     lower.includes("harmonizacao") ||
@@ -214,7 +229,7 @@ if (state.step === "menu") {
     await setUserState(from, state);
     return res.status(200).send("harmonizacao_menu");
   }
- 
+
   if (lower === "3") {
     await sendMessage(from, "📍 Nosso endereço é: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
     await perguntarAlgoMais(from);
@@ -234,7 +249,6 @@ if (state.step === "menu") {
     `📞 Claro! Vou te encaminhar para a Dra. Gabriela. Aguarde Contato!\n\n` +
     `👉 Clique no link abaixo para falar diretamente com ela no WhatsApp:\n${link}`
   );
-
   await perguntarAlgoMais(from);
   state.step = "perguntar_algo_mais";
   await setUserState(from, state);
@@ -246,7 +260,6 @@ if (state.step === "menu") {
   await sendMessage(from, "Opção inválida. Digite *menu* para ver as opções.");
   return res.status(200).send("menu_invalid");
 }
-
 
     // ---------- SUBMENU ODONTOLOGIA ----------
     if (state.step === "odontologia_menu") {
@@ -324,11 +337,11 @@ if (state.step === "menu") {
       await sendMessage(from, "Formato inválido. Envie no formato: DD/MM/AAAA HH:MM (ex: 15/12/2025 14:00)");
       return res.status(200).send("invalid_date_format");
     }
-  
+
     // ⚠️ BLOQUEIO DE TERÇAS (2) E SEXTAS (5)
     const dataLocal = new Date(iso);
     const diaSemana = dataLocal.getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
-  
+
     if (diaSemana === 2 || diaSemana === 5) {
       await sendMessage(
         from,
@@ -336,11 +349,11 @@ if (state.step === "menu") {
       );
       return res.status(200).send("day_blocked");
     }
-  
+
     const startISO = iso;
     const endISO = new Date(new Date(iso).getTime() + 60 * 60000).toISOString(); // 1 hora
     let free;
-  
+
     try {
       free = await isTimeSlotFree(startISO, endISO);
     } catch (err) {
@@ -348,20 +361,21 @@ if (state.step === "menu") {
       await sendMessage(from, "⚠️ Não consegui verificar o horário. Tente novamente mais tarde.");
       return res.status(200).send("calendar_check_error");
     }
-  
+
     if (!free) {
       await sendMessage(from, "❌ Esse horário está ocupado. Envie outro horário.");
       return res.status(200).send("busy");
     }
-  
+
     state.temp.startISO = startISO;
     state.temp.endISO = endISO;
     state.step = "ask_name";
     await setUserState(from, state);
-  
+
     await sendMessage(from, "Ótimo! Agora envie seu *nome completo* para confirmar o agendamento.");
     return res.status(200).send("ask_name_sent");
   }
+
 
 
     // ---------- RECEBER NOME E CRIAR EVENTO ----------
@@ -447,12 +461,13 @@ if (state.step === "menu") {
       await sendMessage(from, "Use os botões *Sim* ou *Não* ou escreva 'sim' / 'não'.");
       return res.status(200).send("invalid_help_choice");
     }
-   // Se chegou aqui → usuário digitou algo errado no MENU
+     // Se chegou aqui → usuário digitou algo errado no MENU
   await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
   return res.status(200).send("invalid_menu");
 }
 // ----------------- HARMONIZAÇÃO — DIRECIONAR PARA WHATSAPP -----------------
-if (state.step === "harmonizacao_procedimento") {
+// ---------------------- FLUXO HARMONIZAÇÃO ----------------------
+  if (state.step === "harmonizacao_procedimento") {
   const procedimentos = {
     "1": "Preenchimento Labial",
     "2": "Toxina Botulínica (Botox)",
@@ -502,8 +517,7 @@ if (state.step === "harmonizacao_procedimento") {
 
   return res.status(200).send("harmonizacao_direcionado");
 }
-
-        // ---------- DEFAULT ----------
+    // ---------- DEFAULT ----------
     await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
     return res.status(200).send("default");
   } catch (err) {
