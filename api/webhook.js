@@ -213,9 +213,6 @@ if (state.step === "menu") {
     );
 
     return res.status(200).send("menu_option_2");
-  
- 
-
  
   if (lower === "3") {
     await sendMessage(from, "📍 Nosso endereço é: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
