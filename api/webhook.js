@@ -476,7 +476,7 @@ if (state.step === "harmonizacao_procedimento") {
   }
 
   if (!escolhido) {
-    await sendMessage(from, "Não consegui identificar o procedimento. Digite o número (1-8) ou escreva o nome do procedimento.");
+    await sendMessage(from, "Não consegui identificar o procedimento. Digite o número (1-8) ou escreva o nome.");
     return res.status(200).send("invalid_proc");
   }
 
@@ -486,36 +486,21 @@ if (state.step === "harmonizacao_procedimento") {
 
   await sendMessage(
     from,
-    `✨ *Perfeito!* ${escolhido}\n\n` +
-      `Clique no link para atendimento direto:\n\n${link}\n\n`
+    `✨ *Perfeito!* Procedimento selecionado:\n\n*${escolhido}*\n\n` +
+      `👉 Clique no link para atendimento direto:\n${link}`
   );
 
-if (state.step === "perguntar_algo_mais") {
-      if (lower === "help_sim" || lower === "sim") {
-        state.step = "menu";
-        state.temp = {};
-        await setUserState(from, state);
-        await sendMessage(from, "Perfeito! Digite *menu* para ver as opções novamente.");
-        return res.status(200).send("back_to_menu");
-      }
+  // pergunta mais algo
+  state.step = "perguntar_algo_mais";
+  await setUserState(from, state);
 
-      if (lower === "help_nao" || lower === "não" || lower === "nao") {
-        await sendMessage(from, "Foi um prazer ajudar! 😊 Até logo.");
-        state.step = "menu";
-        state.temp = {};
-        await setUserState(from, state);
-        return res.status(200).send("end_convo");
-      }
+  await sendButtons(from, "Posso te ajudar com mais alguma coisa?", [
+    { id: "help_sim", title: "Sim" },
+    { id: "help_nao", title: "Não" },
+  ]);
 
-      await sendMessage(from, "Use os botões *Sim* ou *Não* ou escreva 'sim' / 'não'.");
-      return res.status(200).send("invalid_help_choice");
-    }
-     // Se chegou aqui → usuário digitou algo errado no MENU
-  await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
-  return res.status(200).send("invalid_menu");
-
+  return res.status(200).send("harmonizacao_direcionado");
 }
-
 
         // ---------- DEFAULT ----------
     await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
