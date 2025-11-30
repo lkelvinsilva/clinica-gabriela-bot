@@ -187,19 +187,6 @@ if (state.step === "menu") {
     return res.status(200).send("odontologia_menu");
   }
 
-  // OPÇÃO 2 → Harmonização Facial
-  // ---------------- MENU PRINCIPAL ----------------
-if (state.step === "menu") {
-
-  // Usuário digitou "sair"
-  if (lower === "sair") {
-    await sendMessage(from, "Atendimento encerrado 😊");
-    state.step = "menu";
-    state.temp = {};
-    await setUserState(from, state);
-    return res.status(200).send("sair");
-  }
-
   // ---------- OPÇÃO 2 — HARMONIZAÇÃO FACIAL ----------
   if (
     lower === "2" ||
@@ -231,7 +218,7 @@ if (state.step === "menu") {
     state.step = "harmonizacao_procedimento";
     await setUserState(from, state);
     return res.status(200).send("harmonizacao_menu");
-  }
+  
 
   if (lower === "3") {
     await sendMessage(from, "📍 Nosso endereço é: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
@@ -509,17 +496,33 @@ if (state.step === "menu") {
       `👉 Clique no link para atendimento direto:\n${link}`
   );
 
-  // pergunta mais algo
-  state.step = "perguntar_algo_mais";
-  await setUserState(from, state);
+if (state.step === "perguntar_algo_mais") {
+      if (lower === "help_sim" || lower === "sim") {
+        state.step = "menu";
+        state.temp = {};
+        await setUserState(from, state);
+        await sendMessage(from, "Perfeito! Digite *menu* para ver as opções novamente.");
+        return res.status(200).send("back_to_menu");
+      }
 
-  await sendButtons(from, "Posso te ajudar com mais alguma coisa?", [
-    { id: "help_sim", title: "Sim" },
-    { id: "help_nao", title: "Não" },
-  ]);
+        state.step = "menu";
+        state.temp = {};
+        await setUserState(from, state);
+        return res.status(200).send("end_convo");
+      }
+            if (lower === "help_nao" || lower === "não" || lower === "nao") {
+        await sendMessage(from, "Foi um prazer ajudar! 😊 Até logo.");
+        state.step = "menu";
+        state.temp = {};
+        await setUserState(from, state);
+        return res.status(200).send("end_convo");
+      }
 
+      await sendMessage(from, "Use os botões *Sim* ou *Não* ou escreva 'sim' / 'não'.");
+      return res.status(200).send("invalid_help_choice");
   return res.status(200).send("harmonizacao_direcionado");
 }
+
     // ---------- DEFAULT ----------
     await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
     return res.status(200).send("default");
