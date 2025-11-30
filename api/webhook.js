@@ -4,16 +4,11 @@ import { isTimeSlotFree, createEvent } from "../utils/googleCalendar.js";
 import { appendRow } from "../utils/googleSheets.js";
 
 // ---------------------- PARSE DE DATA ----------------------
-// Recebe "DD/MM/YYYY HH:MM" ou "DD/MM/YYYY HH:MM" com 'às' opcional.
-// Retorna ISO string (UTC-03:00) compatível com seu calendário.
 function parseDateTime(text) {
   const m = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(?:às\s*)?(\d{1,2}):(\d{2})/i);
   if (!m) return null;
   const [, d, mo, y, hh, mm] = m;
-  // Cria Date no timezone local do servidor e converte para ISO (mantendo offset -03:00 no texto original)
-  // Para consistência com seu createEvent, retornamos ISO UTC string.
-  const iso = new Date(`${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}T${hh.padStart(2, "0")}:${mm}:00-03:00`).toISOString();
-  return iso;
+  return new Date(`${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}T${hh.padStart(2, "0")}:${mm}:00-03:00`).toISOString();
 }
 
 // ---------------------- ENVIO DE MENSAGEM SIMPLES ----------------------
@@ -41,7 +36,6 @@ async function sendMessage(to, text) {
 
 // ---------------------- ENVIO DE BOTÕES INTERATIVOS ----------------------
 async function sendButtons(to, question, buttons) {
-  // buttons: [{ id: 'sim_agendar', title: 'Sim' }, ...]
   try {
     await axios.post(
       `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
@@ -68,6 +62,7 @@ async function sendButtons(to, question, buttons) {
     console.error("Erro ao enviar botões (sendButtons):", err?.response?.data || err);
   }
 }
+
 async function perguntarAlgoMais(to) {
   await sendButtons(to, "Posso ajudar com mais alguma coisa?", [
     { id: "help_sim", title: "Sim" },
@@ -75,17 +70,13 @@ async function perguntarAlgoMais(to) {
   ]);
 }
 
-
 // ---------------------- HANDLER ----------------------
-
 export default async function handler(req, res) {
-  // Verificação webhook (GET)
+  // webhook verification
   if (req.method === "GET") {
     const mode = req.query["hub.mode"];
     const token = req.query["hub.verify_token"];
     const challenge = req.query["hub.challenge"];
-
-    // Se usa outro env var, ajuste acima
     if (mode === "subscribe" && token === process.env.VERIFY_TOKEN) {
       return res.status(200).send(challenge);
     }
@@ -102,101 +93,90 @@ export default async function handler(req, res) {
 
     const msgId = entry.id;
     const from = entry.from;
-    // Detecta texto normal, botão ou interactive reply id
     const incomingText =
       (entry.text && entry.text.body) ||
       (entry.button && entry.button.payload) ||
       entry.interactive?.button_reply?.id ||
       "";
-    const text = String(incomingText).trim();
+    const text = String(incomingText || "").trim();
     const lower = text.toLowerCase();
-    // Normaliza números (remove emojis, espaços e caracteres invisíveis)
     const numeric = lower.replace(/[^0-9]/g, "");
-
 
     if (!msgId || !from) return res.status(200).send("no_id");
 
-    // Prevenção de duplicatas
     if (await isDuplicateMessage(msgId)) {
       console.log("Mensagem duplicada ignorada:", msgId);
       return res.status(200).send("duplicate");
     }
 
-    // Carrega estado atual ou inicializa
     let state = (await getUserState(from)) || { step: "menu", temp: {} };
     if (!state.step) state.step = "menu";
     if (!state.temp) state.temp = {};
 
-            // -------- COMANDO DE SAÍDA / ENCERRAR ATENDIMENTO ----------
+    // comando de saída
     if (["sair", "encerrar", "finalizar", "cancelar", "0"].includes(lower)) {
-      await sendMessage(
-        from,
-        "😊 Atendimento encerrado.\n\nSe precisar de algo, é só digitar *menu*."
-      );
-
+      await sendMessage(from, "😊 Atendimento encerrado.\n\nSe precisar de algo, é só digitar *menu*.");
       await setUserState(from, { step: "menu", temp: {} });
       return res.status(200).send("session_ended");
     }
 
-
     // ---------- MENU PRINCIPAL ----------
-if (
-  lower === "menu" ||
-  lower === "oi" ||
-  lower === "ola" ||
-  lower === "olá" ||
-  lower === "bom dia" ||
-  lower === "boa tarde" ||
-  lower === "boa noite"
-) {
-  state.step = "menu";
-  state.temp = {};
-  await setUserState(from, state);
+    if (
+      lower === "menu" ||
+      lower === "oi" ||
+      lower === "ola" ||
+      lower === "olá" ||
+      lower === "bom dia" ||
+      lower === "boa tarde" ||
+      lower === "boa noite"
+    ) {
+      state.step = "menu";
+      state.temp = {};
+      await setUserState(from, state);
 
-  await sendMessage(
-    from,
-    `Olá! Seja bem vinda (o) 😊\n\nSou a assistente da Dra. Gabriela e estou aqui para te ajudar nesse inicio!Por favor, escolha uma das opções abaixo pra te direcionarmos melhor:\n` +                    
-      `1️⃣ Serviços odontológicos\n` +
-      `2️⃣ Harmonização facial\n` +
-      `3️⃣ Endereço\n` +
-      `4️⃣ Falar com a Dra. Gabriela\n\n` +
-      `Digite apenas o número da opção ou digite sair para encerrar o atendimento`
-  );
+      await sendMessage(
+        from,
+        `Olá! Seja bem vinda (o) 😊\n\nSou a assistente da Dra. Gabriela e estou aqui para te ajudar nesse início! Por favor, escolha uma das opções abaixo:\n\n` +
+          `1️⃣ Serviços odontológicos\n` +
+          `2️⃣ Harmonização facial\n` +
+          `3️⃣ Endereço\n` +
+          `4️⃣ Falar com a Dra. Gabriela\n\n` +
+          `Digite apenas o número da opção ou digite sair para encerrar o atendimento.`
+      );
 
-  return res.status(200).send("menu_sent");
-}
+      return res.status(200).send("menu_sent");
+    }
 
+    // Se estamos no estado inicial "menu" e o usuário enviou uma opção:
+    if (state.step === "menu") {
+      // opção 1 — odontologia (sub-menu)
+      if (lower === "1" || numeric === "1") {
+        state.step = "odontologia_menu";
+        await setUserState(from, state);
 
-// Usuário escolheu uma das opções do menu
-if (state.step === "menu") {
+        await sendMessage(
+          from,
+          `🦷 *Serviços Odontológicos*\n\n` +
+            `1️⃣ Restauração em Resina\n` +
+            `2️⃣ Limpeza Dental\n` +
+            `3️⃣ Extração de Siso\n` +
+            `4️⃣ Clareamento Dental\n` +
+            `5️⃣ Outro serviço\n\n` +
+            `Digite o número da opção ou *menu* para voltar.`
+        );
+        return res.status(200).send("odontologia_menu");
+      }
 
-  if (lower === "1") {
-    state.step = "odontologia_menu";
-    await setUserState(from, state);
+      // opção 2 — harmonização
+      if (lower === "2" || numeric === "2" || lower.includes("harmonizacao") || lower.includes("harmonização")) {
+        state.step = "harmonizacao_procedimento";
+        state.temp = {};
+        await setUserState(from, state);
 
-    await sendMessage(
-      from,
-      `🦷 *Serviços Odontológicos*\n\n` +
-        `1️⃣ Restauração em Resina\n` +
-        `2️⃣ Limpeza Dental\n` +
-        `3️⃣ Extração de Siso\n` +
-        `4️⃣ Clareamento Dental\n` +
-        `5️⃣ Outro serviço\n\n` +
-        `Digite o número da opção ou *menu* para voltar.`
-    );
-    return res.status(200).send("odontologia_menu");
-  }
-
-  // ---------- OPÇÃO 2 — HARMONIZAÇÃO FACIAL ----------
-  if (
-    lower === "2" ||
-    lower.includes("harmonizacao") ||
-    lower.includes("harmonização")
-  ) {
-    await sendMessage(
-      from,
-      `✨ *Harmonização Facial*\n\n` +
-      `Escolha o procedimento desejado:\n\n` +
+        await sendMessage(
+          from,
+          `✨ *Harmonização Facial*\n\n` +
+          `Escolha o procedimento desejado:\n\n` +
           `1️⃣ *Preenchimento Labial*\n` +
           `💋 Melhora o contorno, volume e hidratação dos lábios.\n\n` +
           `2️⃣ *Toxina Botulínica (Botox)*\n` +
@@ -212,56 +192,54 @@ if (state.step === "menu") {
           `7️⃣ *Bioestimulador de Colágeno*\n` +
           `🧪 Melhora firmeza, textura e estimula colágeno.\n\n` +
           `8️⃣ *Outros procedimentos*\n` +
-      `Digite o número da opção ou escreva o nome do procedimento.`
-    );
+          `💬 Basta enviar o nome do procedimento que deseja saber mais.`
+        );
 
-    state.step = "harmonizacao_procedimento";
-    await setUserState(from, state);
-    return res.status(200).send("harmonizacao_menu");
-  
+        return res.status(200).send("harmonizacao_menu");
+      }
 
-  if (lower === "3") {
-    await sendMessage(from, "📍 Nosso endereço é: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
-    await perguntarAlgoMais(from);
-    state.step = "perguntar_algo_mais";
-    await setUserState(from, state);
-    return res.status(200).send("ask_more");
+      // opção 3 — endereço
+      if (lower === "3" || numeric === "3") {
+        await sendMessage(from, "📍 Nosso endereço é: Av. Washington Soares, 3663 - Sala 910 - Torre 01 - Fortaleza - CE.");
+        await perguntarAlgoMais(from);
+        state.step = "perguntar_algo_mais";
+        await setUserState(from, state);
+        return res.status(200).send("ask_more");
+      }
 
-  }
+      // opção 4 — falar com a Dra.
+      if (lower === "4" || numeric === "4") {
+        const numero = "5585994160815";
+        const mensagem = encodeURIComponent("Olá! Gostaria de falar com você.");
+        const link = `https://wa.me/${numero}?text=${mensagem}`;
 
-  if (lower === "4") {
-  const numero = "5585994160815"; // coloque aqui o número correto da Dra.
-  const mensagem = encodeURIComponent("Olá! Gostaria de falar com você.");
-  const link = `https://wa.me/${numero}?text=${mensagem}`;
+        await sendMessage(
+          from,
+          `📞 Claro! Vou te encaminhar para a Dra. Gabriela. Aguarde contato!\n\n` +
+            `👉 Clique no link abaixo para falar diretamente com ela no WhatsApp:\n${link}`
+        );
+        await perguntarAlgoMais(from);
+        state.step = "perguntar_algo_mais";
+        await setUserState(from, state);
+        return res.status(200).send("ask_more");
+      }
 
-  await sendMessage(
-    from,
-    `📞 Claro! Vou te encaminhar para a Dra. Gabriela. Aguarde Contato!\n\n` +
-    `👉 Clique no link abaixo para falar diretamente com ela no WhatsApp:\n${link}`
-  );
-  await perguntarAlgoMais(from);
-  state.step = "perguntar_algo_mais";
-  await setUserState(from, state);
-  return res.status(200).send("ask_more");
-
-}
-
-  // Se usuário digitou algo diferente de 1, 2, 3 ou 4
-  await sendMessage(from, "Opção inválida. Digite *menu* para ver as opções.");
-  return res.status(200).send("menu_invalid");
-}
+      // inválido no menu
+      await sendMessage(from, "Opção inválida. Digite *menu* para ver as opções.");
+      return res.status(200).send("menu_invalid");
+    }
 
     // ---------- SUBMENU ODONTOLOGIA ----------
     if (state.step === "odontologia_menu") {
-      // permitir 'menu' para voltar
       if (lower === "menu") {
         state.step = "menu";
+        state.temp = {};
         await setUserState(from, state);
         await sendMessage(from, "Voltando ao menu principal. Digite *menu* para exibir as opções.");
         return res.status(200).send("back_to_menu");
       }
 
-      const procedimentos = {
+      const procedimentosOdonto = {
         "1": "Restauração em Resina",
         "2": "Limpeza Dental",
         "3": "Extração de Siso",
@@ -269,7 +247,7 @@ if (state.step === "menu") {
         "5": "Outro serviço",
       };
 
-      const escolhido = procedimentos[lower];
+      const escolhido = procedimentosOdonto[numeric] || procedimentosOdonto[text];
       if (!escolhido) {
         await sendMessage(from, "❌ Opção inválida. Digite o número do procedimento ou *menu* para voltar.");
         return res.status(200).send("invalid_odontologia_option");
@@ -279,7 +257,6 @@ if (state.step === "menu") {
       state.step = "odontologia_confirmar_agendamento";
       await setUserState(from, state);
 
-      // Envia botões Sim / Não
       await sendButtons(from, `Você escolheu *${escolhido}*.\nDeseja fazer um agendamento?`, [
         { id: "sim_agendar", title: "Sim" },
         { id: "nao_agendar", title: "Não" },
@@ -288,10 +265,8 @@ if (state.step === "menu") {
       return res.status(200).send("odontologia_choice_sent");
     }
 
-    // ---------- CONFIRMAÇÃO AGENDAMENTO (após escolher procedimento) ----------
+    // confirmação agendamento (odontologia)
     if (state.step === "odontologia_confirmar_agendamento") {
-      // Aqui o incoming text poderá ser 'sim_agendar' ou 'nao_agendar' vindo do button_reply id,
-      // ou o usuário pode escrever 'sim'/'não' em texto. Aceitamos ambos.
       if (lower === "sim_agendar" || lower === "sim") {
         state.step = "ask_datetime";
         await setUserState(from, state);
@@ -299,74 +274,57 @@ if (state.step === "menu") {
         return res.status(200).send("start_ask_datetime");
       }
 
-      if (lower === "nao_agendar" || lower === "não" || lower === "nao_agendar") {
-        // Volta somente ao submenu odontologia (não ao menu principal)
+      if (lower === "nao_agendar" || lower === "não" || lower === "nao") {
         state.step = "odontologia_menu";
         await setUserState(from, state);
-        await sendMessage(from, 
-        `Tudo bem! Aqui estão novamente as opções odontológicas:
-        1️⃣ Restauração em Resina
-        2️⃣ Limpeza Dental
-        3️⃣ Extração de Siso
-        4️⃣ Clareamento Dental
-        5️⃣ Outro serviço
-        Digite o número do procedimento ou *menu* para voltar ao principal.`);
+        await sendMessage(from, `Tudo bem! Digite o número do procedimento novamente ou *menu* para voltar.`);
         return res.status(200).send("back_to_odontologia_menu");
       }
 
-      // não entendeu
       await sendMessage(from, "Por favor use os botões *Sim* ou *Não* ou escreva 'sim' / 'não'.");
       return res.status(200).send("invalid_confirm_input");
     }
 
     // ---------- PEDIR DATA/HORA ----------
     if (state.step === "ask_datetime") {
-  // Exemplo do usuário: "15/12/2025 14:00"
-    const iso = parseDateTime(text);
-    if (!iso) {
-      await sendMessage(from, "Formato inválido. Envie no formato: DD/MM/AAAA HH:MM (ex: 15/12/2025 14:00)");
-      return res.status(200).send("invalid_date_format");
+      const iso = parseDateTime(text);
+      if (!iso) {
+        await sendMessage(from, "Formato inválido. Envie no formato: DD/MM/AAAA HH:MM (ex: 15/12/2025 14:00)");
+        return res.status(200).send("invalid_date_format");
+      }
+
+      const dataLocal = new Date(iso);
+      const diaSemana = dataLocal.getDay(); // 0=Dom,1=Seg,...
+
+      if (diaSemana === 2 || diaSemana === 5) {
+        await sendMessage(from, "❌ Não realizo atendimentos às *terças* e *sextas-feiras*.\nPor favor, envie outra data. 😊");
+        return res.status(200).send("day_blocked");
+      }
+
+      const startISO = iso;
+      const endISO = new Date(new Date(iso).getTime() + 60 * 60000).toISOString();
+      let free;
+      try {
+        free = await isTimeSlotFree(startISO, endISO);
+      } catch (err) {
+        console.error("Erro ao verificar disponibilidade:", err);
+        await sendMessage(from, "⚠️ Não consegui verificar o horário. Tente novamente mais tarde.");
+        return res.status(200).send("calendar_check_error");
+      }
+
+      if (!free) {
+        await sendMessage(from, "❌ Esse horário está ocupado. Envie outro horário.");
+        return res.status(200).send("busy");
+      }
+
+      state.temp.startISO = startISO;
+      state.temp.endISO = endISO;
+      state.step = "ask_name";
+      await setUserState(from, state);
+
+      await sendMessage(from, "Ótimo! Agora envie seu *nome completo* para confirmar o agendamento.");
+      return res.status(200).send("ask_name_sent");
     }
-
-    // ⚠️ BLOQUEIO DE TERÇAS (2) E SEXTAS (5)
-    const dataLocal = new Date(iso);
-    const diaSemana = dataLocal.getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
-
-    if (diaSemana === 2 || diaSemana === 5) {
-      await sendMessage(
-        from,
-        "❌ Não realizo atendimentos às *terças* e *sextas-feiras*.\nPor favor, envie outra data. 😊"
-      );
-      return res.status(200).send("day_blocked");
-    }
-
-    const startISO = iso;
-    const endISO = new Date(new Date(iso).getTime() + 60 * 60000).toISOString(); // 1 hora
-    let free;
-
-    try {
-      free = await isTimeSlotFree(startISO, endISO);
-    } catch (err) {
-      console.error("Erro ao verificar disponibilidade:", err);
-      await sendMessage(from, "⚠️ Não consegui verificar o horário. Tente novamente mais tarde.");
-      return res.status(200).send("calendar_check_error");
-    }
-
-    if (!free) {
-      await sendMessage(from, "❌ Esse horário está ocupado. Envie outro horário.");
-      return res.status(200).send("busy");
-    }
-
-    state.temp.startISO = startISO;
-    state.temp.endISO = endISO;
-    state.step = "ask_name";
-    await setUserState(from, state);
-
-    await sendMessage(from, "Ótimo! Agora envie seu *nome completo* para confirmar o agendamento.");
-    return res.status(200).send("ask_name_sent");
-  }
-
-
 
     // ---------- RECEBER NOME E CRIAR EVENTO ----------
     if (state.step === "ask_name") {
@@ -378,7 +336,6 @@ if (state.step === "menu") {
 
       state.temp.name = nome;
 
-      // criar evento
       let event;
       try {
         event = await createEvent({
@@ -400,7 +357,6 @@ if (state.step === "menu") {
         return res.status(200).send("event_error");
       }
 
-      // salva na planilha (evita travar por causa de erro)
       try {
         await appendRow([
           new Date().toLocaleString(),
@@ -414,11 +370,9 @@ if (state.step === "menu") {
         console.error("Erro ao salvar na planilha:", err);
       }
 
-      // confirma ao usuário
       const startLocal = new Date(state.temp.startISO).toLocaleString("pt-BR", { timeZone: "America/Fortaleza" });
       await sendMessage(from, `✅ *Agendamento confirmado!*\n\n👤 ${nome}\n📅 ${startLocal}\nProcedimento: ${state.temp.procedimento}\n⏱️ Duração: 1h\n\nSe precisar remarcar, entre em contato.`);
 
-      // Pergunta se deseja mais alguma coisa com botões
       state.step = "perguntar_algo_mais";
       await setUserState(from, state);
 
@@ -451,79 +405,59 @@ if (state.step === "menu") {
       await sendMessage(from, "Use os botões *Sim* ou *Não* ou escreva 'sim' / 'não'.");
       return res.status(200).send("invalid_help_choice");
     }
-     // Se chegou aqui → usuário digitou algo errado no MENU
-  await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
-  return res.status(200).send("invalid_menu");
-}
-// ----------------- HARMONIZAÇÃO — DIRECIONAR PARA WHATSAPP -----------------
-// ---------------------- FLUXO HARMONIZAÇÃO ----------------------
-  if (state.step === "harmonizacao_procedimento") {
-  const procedimentos = {
-    "1": "Preenchimento Labial",
-    "2": "Toxina Botulínica (Botox)",
-    "3": "Preenchimento Mentual",
-    "4": "Rinomodelação",
-    "5": "Preenchimento Bigode Chinês",
-    "6": "Preenchimento Mandibular",
-    "7": "Bioestimulador de Colágeno",
-    "8": "Outros procedimentos",
-  };
 
-  let escolhido = procedimentos[numeric];
+    // ----------------- FLUXO HARMONIZAÇÃO -----------------
+    if (state.step === "harmonizacao_procedimento") {
+      const procedimentos = {
+        "1": "Preenchimento Labial",
+        "2": "Toxina Botulínica (Botox)",
+        "3": "Preenchimento Mentual",
+        "4": "Rinomodelação",
+        "5": "Preenchimento Bigode Chinês",
+        "6": "Preenchimento Mandibular",
+        "7": "Bioestimulador de Colágeno",
+        "8": "Outros procedimentos",
+      };
 
-  if (!escolhido) {
-    const input = lower;
-    for (const key in procedimentos) {
-      if (procedimentos[key].toLowerCase().includes(input)) {
-        escolhido = procedimentos[key];
-        break;
+      let escolhido = procedimentos[numeric];
+
+      if (!escolhido) {
+        const input = lower;
+        for (const key in procedimentos) {
+          if (procedimentos[key].toLowerCase().includes(input)) {
+            escolhido = procedimentos[key];
+            break;
+          }
+        }
       }
+
+      if (!escolhido) {
+        await sendMessage(from, "Não consegui identificar o procedimento. Digite o número (1-8) ou escreva o nome.");
+        return res.status(200).send("invalid_proc");
+      }
+
+      const numeroPessoal = "5585992883317";
+      const mensagem = encodeURIComponent(`Olá! Tenho interesse em: ${escolhido}`);
+      const link = `https://wa.me/${numeroPessoal}?text=${mensagem}`;
+
+      await sendMessage(
+        from,
+        `✨ *Perfeito!* Procedimento selecionado:\n\n*${escolhido}*\n\n` +
+          `👉 Clique no link para atendimento direto:\n${link}`
+      );
+
+      state.step = "perguntar_algo_mais";
+      await setUserState(from, state);
+
+      await sendButtons(from, "Posso te ajudar com mais alguma coisa?", [
+        { id: "help_sim", title: "Sim" },
+        { id: "help_nao", title: "Não" },
+      ]);
+
+      return res.status(200).send("harmonizacao_direcionado");
     }
-  }
 
-  if (!escolhido) {
-    await sendMessage(from, "Não consegui identificar o procedimento. Digite o número (1-8) ou escreva o nome.");
-    return res.status(200).send("invalid_proc");
-  }
-
-  const numeroPessoal = "5585992883317";
-  const mensagem = encodeURIComponent(`Olá! Tenho interesse em: ${escolhido}`);
-  const link = `https://wa.me/${numeroPessoal}?text=${mensagem}`;
-
-  await sendMessage(
-    from,
-    `✨ *Perfeito!* Procedimento selecionado:\n\n*${escolhido}*\n\n` +
-      `👉 Clique no link para atendimento direto:\n${link}`
-  );
-
-if (state.step === "perguntar_algo_mais") {
-      if (lower === "help_sim" || lower === "sim") {
-        state.step = "menu";
-        state.temp = {};
-        await setUserState(from, state);
-        await sendMessage(from, "Perfeito! Digite *menu* para ver as opções novamente.");
-        return res.status(200).send("back_to_menu");
-      }
-
-        state.step = "menu";
-        state.temp = {};
-        await setUserState(from, state);
-        return res.status(200).send("end_convo");
-      }
-            if (lower === "help_nao" || lower === "não" || lower === "nao") {
-        await sendMessage(from, "Foi um prazer ajudar! 😊 Até logo.");
-        state.step = "menu";
-        state.temp = {};
-        await setUserState(from, state);
-        return res.status(200).send("end_convo");
-      }
-
-      await sendMessage(from, "Use os botões *Sim* ou *Não* ou escreva 'sim' / 'não'.");
-      return res.status(200).send("invalid_help_choice");
-  return res.status(200).send("harmonizacao_direcionado");
-}
-
-    // ---------- DEFAULT ----------
+    // fallback padrão
     await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
     return res.status(200).send("default");
   } catch (err) {
@@ -531,4 +465,3 @@ if (state.step === "perguntar_algo_mais") {
     return res.status(500).send("internal_error");
   }
 }
-
