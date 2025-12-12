@@ -294,11 +294,25 @@ export default async function handler(req, res) {
       }
 
       const dataLocal = new Date(iso);
-            // --- LIMITE DE HORÁRIO PERMITIDO ---
-      const hora = dataLocal.getHours();
-      if (hora < 8 || hora >= 18) {
-        await sendMessage(from, "⚠️ O horário de atendimento é das *08:00 às 18:00*.\nPor favor, envie outro horário.");
-        return res.status(200).send("invalid_time_range");
+      // ---------------------- LIMITE DE HORÁRIO ----------------------
+
+      // extrai hora/minuto usando timezone de Fortaleza
+      const hora = dateObj.toLocaleString("pt-BR", {
+        timeZone: "America/Fortaleza",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      });
+
+      const [h, m] = hora.split(":").map(Number);
+
+      // bloqueia antes das 08:00 e após 18:00
+      if (h < 8 || h > 18 || (h === 18 && m > 0)) {
+        await sendMessage(
+          from,
+          "⚠️ *Horário indisponível.*\n\nAtendemos somente entre *08:00 e 18:00*.\nEnvie outro horário."
+        );
+        return res.status(200).send("invalid_time");
       }
 
       const diaSemana = dataLocal.getDay(); // 0=Dom,1=Seg,...
