@@ -294,6 +294,13 @@ export default async function handler(req, res) {
       }
 
       const dataLocal = new Date(iso);
+            // --- LIMITE DE HORÁRIO PERMITIDO ---
+      const hora = dataLocal.getHours();
+      if (hora < 8 || hora >= 18) {
+        await sendMessage(from, "⚠️ O horário de atendimento é das *08:00 às 18:00*.\nPor favor, envie outro horário.");
+        return res.status(200).send("invalid_time_range");
+      }
+
       const diaSemana = dataLocal.getDay(); // 0=Dom,1=Seg,...
 
       if (diaSemana === 2 || diaSemana === 5) {
