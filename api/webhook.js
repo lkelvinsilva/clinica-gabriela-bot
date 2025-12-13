@@ -297,7 +297,7 @@ export default async function handler(req, res) {
       // ---------------------- LIMITE DE HORÁRIO ----------------------
 
       // extrai hora/minuto usando timezone de Fortaleza
-      const hora = dateObj.toLocaleString("pt-BR", {
+      const hora = dataLocal.toLocaleString("pt-BR", {
         timeZone: "America/Fortaleza",
         hour: "2-digit",
         minute: "2-digit",
