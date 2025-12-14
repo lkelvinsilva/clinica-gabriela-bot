@@ -3,5 +3,17 @@
     "env": {
       "NODE_OPTIONS": "--experimental-specifier-resolution=node --trace-warnings"
     }
-  }
+  },
+
+  "crons": [
+    {
+      "path": "/api/reminders",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/reminders-2h",
+      "schedule": "0 * * * *"
+    }
+  ]
 }
+

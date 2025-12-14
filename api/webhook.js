@@ -3,6 +3,9 @@ import { getUserState, setUserState, isDuplicateMessage } from "../utils/state.j
 import { isTimeSlotFree, createEvent } from "../utils/googleCalendar.js";
 import { appendRow } from "../utils/googleSheets.js";
 
+const ADMIN_PHONE = "5585992883317"; // seu WhatsApp pessoal
+
+
 // ---------------------- PARSE DE DATA ----------------------
 function parseDateTime(text) {
   const m = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(?:às\s*)?(\d{1,2}):(\d{2})/i);
@@ -119,6 +122,32 @@ export default async function handler(req, res) {
       await setUserState(from, { step: "menu", temp: {} });
       return res.status(200).send("session_ended");
     }
+
+        // ---------- CONFIRMAÇÃO / CANCELAMENTO DE CONSULTA ----------
+
+    if (state.step === "aguardando_confirmacao") {
+
+      if (lower === "confirmar_consulta") {
+        await sendMessage(from, "✅ Consulta confirmada! Te aguardamos 💚");
+
+        await setUserState(from, { step: "menu", temp: {} });
+        return res.status(200).send("confirmed");
+      }
+
+      if (lower === "desmarcar_consulta") {
+        await sendMessage(from, "❌ Consulta desmarcada. Obrigada por avisar.");
+
+        // AVISA VOCÊ
+        await sendMessage(
+          process.env.ADMIN_PHONE,
+          `⚠️ *Consulta desmarcada*\nPaciente: ${from}`
+        );
+
+        await setUserState(from, { step: "menu", temp: {} });
+        return res.status(200).send("cancelled");
+      }
+    }
+
 
     // ---------- MENU PRINCIPAL ----------
     if (
@@ -270,7 +299,7 @@ export default async function handler(req, res) {
       if (lower === "sim_agendar" || lower === "sim") {
         state.step = "ask_datetime";
         await setUserState(from, state);
-        await sendMessage(from, `Perfeito! Vamos agendar *${state.temp.procedimento}*.\nEnvie a data e horário desejados.\nExemplo: 15/12/2025 14:00`);
+        await sendMessage(from, `Perfeito! Vamos agendar *${state.temp.procedimento}*.\n HORÁRIO DE AGENDAMENTO: seg a sex: 08h as 18h. Sáb: 08h as 12h.\nEnvie a data e horário desejados.\nExemplo: 15/12/2025 14:00`);
         return res.status(200).send("start_ask_datetime");
       }
 
@@ -294,11 +323,25 @@ export default async function handler(req, res) {
       }
 
       const dataLocal = new Date(iso);
-      // --- LIMITE DE HORÁRIO PERMITIDO ---
-      const hora = dataLocal.getHours();
-      if (hora < 8 || hora >= 18) {
-        await sendMessage(from, "⚠️ O horário de atendimento é das *08:00 às 18:00*.\nPor favor, envie outro horário.");
-        return res.status(200).send("invalid_time_range");
+      // ---------------------- LIMITE DE HORÁRIO ----------------------
+
+      // extrai hora/minuto usando timezone de Fortaleza
+      const hora = dataLocal.toLocaleString("pt-BR", {
+        timeZone: "America/Fortaleza",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      });
+
+      const [h, m] = hora.split(":").map(Number);
+
+      // bloqueia antes das 08:00 e após 18:00
+      if (h < 8 || h > 18 || (h === 18 && m > 0)) {
+        await sendMessage(
+          from,
+          "⚠️ *Horário indisponível.*\n\nAtendemos somente entre *08:00 e 18:00*.\nEnvie outro horário."
+        );
+        return res.status(200).send("invalid_time");
       }
 
       const diaSemana = dataLocal.getDay(); // 0=Dom,1=Seg,...

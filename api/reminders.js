@@ -1,49 +1,72 @@
 import { listUpcomingEvents } from "../utils/googleCalendar.js";
 import axios from "axios";
+import { setUserState } from "../utils/state.js";
 
-function minutesFromNowToISO(minAhead) {
-  const now = new Date();
-  const then = new Date(now.getTime() + minAhead * 60000);
-  return { nowISO: now.toISOString(), thenISO: then.toISOString() };
-}
 
-async function sendMessage(to, text) {
+async function sendConfirmButtons(to, text) {
   await axios.post(
     `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
-    { messaging_product: "whatsapp", to, text: { body: text } },
-    { headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, "Content-Type": "application/json" } }
+    {
+      messaging_product: "whatsapp",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: { text },
+        action: {
+          buttons: [
+            { type: "reply", reply: { id: "confirmar_consulta", title: "✅ Confirmar" } },
+            { type: "reply", reply: { id: "desmarcar_consulta", title: "❌ Desmarcar" } }
+          ]
+        }
+      }
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        "Content-Type": "application/json"
+      }
+    }
   );
 }
 
 export default async function handler(req, res) {
-  // Proteja este endpoint com algum token se quiser (vercel team secret) -> left as future
   try {
-    const lookAhead = parseInt(process.env.REMINDER_LOOKAHEAD_MIN || "60", 10);
-    const { nowISO, thenISO } = {
-      nowISO: new Date().toISOString(),
-      thenISO: new Date(new Date().getTime() + lookAhead * 60000).toISOString()
-    };
+    const lookAhead = 1440; // 24h
+    const now = new Date().toISOString();
+    const then = new Date(Date.now() + lookAhead * 60000).toISOString();
 
-    const events = await listUpcomingEvents(nowISO, thenISO);
+    const events = await listUpcomingEvents(now, then);
+
+    let sent = 0;
 
     for (const ev of events) {
-      const start = ev.start?.dateTime || ev.start?.date;
-      // buscar telefone no título ou descrição (neste código usamos (phone) no summary)
-      const phoneMatch = (ev.description || "").match(/(\+?\d{10,13})/) || (ev.attendees?.[0]?.email ? null : null);
-      // fallback: tentamos parsear do summary (ex: "Consulta - 558599400246")
-      const phoneFromSummary = (ev.summary || "").match(/\+?\d{8,14}/);
-      const phone = phoneMatch ? phoneMatch[0] : (phoneFromSummary ? phoneFromSummary[0] : null);
+      const start = ev.start?.dateTime;
+      const phoneMatch = ev.description?.match(/\+?\d{10,13}/);
+      if (!phoneMatch) continue;
 
-      if (!phone) continue; // se não temos telefone, pular
-
-      const startLocal = new Date(start).toLocaleString("pt-BR", { timeZone: process.env.TIMEZONE || "America/Fortaleza" });
-
-      await sendMessage(phone, `⏰ Lembrete: Você tem uma consulta agendada em ${startLocal}.\nSe precisar cancelar, responda aqui.`);
+      const phone = phoneMatch[0];
+      const startLocal = new Date(start).toLocaleString("pt-BR", {
+        timeZone: "America/Fortaleza"
+      });
+      await setUserState(phone, {
+        step: "aguardando_confirmacao",
+        temp: {
+          eventStart: start,
+          eventId: ev.id
+        }
+      });
+      await sendConfirmButtons(
+        phone,
+        `⏰ *Lembrete de consulta*\n\n📅 ${startLocal}\n\nConfirma sua presença?`
+      );
+      
+      sent++;
     }
 
-    return res.status(200).send({ sent: events.length });
+    return res.status(200).json({ sent });
   } catch (err) {
-    console.error("Erro reminders:", err);
+    console.error(err);
     return res.status(500).send("erro");
   }
 }
