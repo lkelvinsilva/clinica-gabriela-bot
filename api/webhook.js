@@ -3,6 +3,9 @@ import { getUserState, setUserState, isDuplicateMessage } from "../utils/state.j
 import { isTimeSlotFree, createEvent } from "../utils/googleCalendar.js";
 import { appendRow } from "../utils/googleSheets.js";
 
+const ADMIN_PHONE = "5585992883317"; // seu WhatsApp pessoal
+
+
 // ---------------------- PARSE DE DATA ----------------------
 function parseDateTime(text) {
   const m = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(?:às\s*)?(\d{1,2}):(\d{2})/i);
@@ -119,6 +122,32 @@ export default async function handler(req, res) {
       await setUserState(from, { step: "menu", temp: {} });
       return res.status(200).send("session_ended");
     }
+
+        // ---------- CONFIRMAÇÃO / CANCELAMENTO DE CONSULTA ----------
+
+    if (state.step === "aguardando_confirmacao") {
+
+      if (lower === "confirmar_consulta") {
+        await sendMessage(from, "✅ Consulta confirmada! Te aguardamos 💚");
+
+        await setUserState(from, { step: "menu", temp: {} });
+        return res.status(200).send("confirmed");
+      }
+
+      if (lower === "desmarcar_consulta") {
+        await sendMessage(from, "❌ Consulta desmarcada. Obrigada por avisar.");
+
+        // AVISA VOCÊ
+        await sendMessage(
+          process.env.ADMIN_PHONE,
+          `⚠️ *Consulta desmarcada*\nPaciente: ${from}`
+        );
+
+        await setUserState(from, { step: "menu", temp: {} });
+        return res.status(200).send("cancelled");
+      }
+    }
+
 
     // ---------- MENU PRINCIPAL ----------
     if (
@@ -486,3 +515,5 @@ export default async function handler(req, res) {
     return res.status(500).send("internal_error");
   }
 }
+
+
