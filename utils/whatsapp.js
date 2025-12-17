@@ -1,21 +1,16 @@
 import axios from "axios";
 
-try {
-  await notifyAdminNewAppointment({
-    paciente: nome,
-    telefone: from,
-    data: startLocal
-  });
-} catch (err) {
-  console.error("Erro ao notificar admin no WhatsApp:", err?.response?.data || err);
-}
- {
+export async function notifyAdminNewAppointment({
+  paciente,
+  telefone,
+  data
+}) {
   const payload = {
     messaging_product: "whatsapp",
-    to: process.env.ADMIN_PHONE, // ⚠️ obrigatório
+    to: process.env.ADMIN_PHONE, // SEU WhatsApp pessoal
     type: "template",
     template: {
-      name: "nova_consulta_admin_utilidade",
+      name: "nova_consulta_admin_utilidade", // nome EXATO aprovado
       language: {
         code: "pt_BR"
       },
@@ -33,7 +28,7 @@ try {
   };
 
   await axios.post(
-    `https://graph.facebook.com/v24.0/${process.env.PHONE_NUMBER_ID}/messages`,
+    `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
     payload,
     {
       headers: {
