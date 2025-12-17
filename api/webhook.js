@@ -394,6 +394,16 @@ export default async function handler(req, res) {
           startISO: state.temp.startISO,
           durationMinutes: 60,
         });
+        const startLocal = new Date(state.temp.startISO).toLocaleString("pt-BR", {
+          timeZone: "America/Fortaleza"
+        });
+
+        await notifyAdminNewAppointment({
+          paciente: nome,
+          telefone: from,
+          data: startLocal
+        });
+
       } catch (err) {
         console.error("Erro ao criar evento:", err);
         event = null;
