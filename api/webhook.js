@@ -2,6 +2,8 @@ import axios from "axios";
 import { getUserState, setUserState, isDuplicateMessage } from "../utils/state.js";
 import { isTimeSlotFree, createEvent } from "../utils/googleCalendar.js";
 import { appendRow } from "../utils/googleSheets.js";
+import { notifyAdminNewAppointment } from "../utils/whatsapp.js";
+
 
 const ADMIN_PHONE = "5585992883317"; // seu WhatsApp pessoal
 
