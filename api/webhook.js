@@ -299,7 +299,7 @@ export default async function handler(req, res) {
       if (lower === "sim_agendar" || lower === "sim") {
         state.step = "ask_datetime";
         await setUserState(from, state);
-        await sendMessage(from, `Perfeito! Vamos agendar *${state.temp.procedimento}*.\n HORÁRIO DE AGENDAMENTO: seg a sex: 08h as 18h. Sáb: 08h as 12h.\nEnvie a data e horário desejados.\nExemplo: 15/12/2025 14:00`);
+        await sendMessage(from, `Perfeito! Vamos agendar *${state.temp.procedimento}*.\n HORÁRIO DE AGENDAMENTO: seg a sex: 09h as 18h. Sáb: 08h as 12h.\nEnvie a data e horário desejados.\nExemplo: 15/12/2025 14:00`);
         return res.status(200).send("start_ask_datetime");
       }
 
@@ -336,10 +336,10 @@ export default async function handler(req, res) {
       const [h, m] = hora.split(":").map(Number);
 
       // bloqueia antes das 08:00 e após 18:00
-      if (h < 8 || h > 18 || (h === 18 && m > 0)) {
+      if (h < 9 || h > 18 || (h === 18 && m > 0)) {
         await sendMessage(
           from,
-          "⚠️ *Horário indisponível.*\n\nAtendemos somente entre *08:00 e 18:00*.\nEnvie outro horário."
+          "⚠️ *Horário indisponível.*\n\nAtendemos somente entre *09:00 às 18:00*.\nEnvie outro horário."
         );
         return res.status(200).send("invalid_time");
       }
