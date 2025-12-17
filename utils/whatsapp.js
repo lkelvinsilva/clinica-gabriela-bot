@@ -1,10 +1,15 @@
 import axios from "axios";
 
-export async function notifyAdminNewAppointment({
-  paciente,
-  telefone,
-  data
-}) {
+try {
+  await notifyAdminNewAppointment({
+    paciente: nome,
+    telefone: from,
+    data: startLocal
+  });
+} catch (err) {
+  console.error("Erro ao notificar admin no WhatsApp:", err?.response?.data || err);
+}
+ {
   const payload = {
     messaging_product: "whatsapp",
     to: process.env.ADMIN_PHONE, // ⚠️ obrigatório
