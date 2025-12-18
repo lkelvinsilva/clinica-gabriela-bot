@@ -4,10 +4,6 @@ import { isTimeSlotFree, createEvent } from "../utils/googleCalendar.js";
 import { appendRow } from "../utils/googleSheets.js";
 import { notifyAdminNewAppointment } from "../utils/whatsapp.js";
 
-
-const ADMIN_PHONE = "5585992883317"; // seu WhatsApp pessoal
-
-
 // ---------------------- PARSE DE DATA ----------------------
 function parseDateTime(text) {
   const m = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(?:às\s*)?(\d{1,2}):(\d{2})/i);
@@ -316,68 +312,6 @@ export default async function handler(req, res) {
       return res.status(200).send("invalid_confirm_input");
     }
 
-    // ---------- PEDIR DATA/HORA ----------
-    if (state.step === "ask_datetime") {
-      const iso = parseDateTime(text);
-      if (!iso) {
-        await sendMessage(from, "Formato inválido. Envie no formato: DD/MM/AAAA HH:MM (ex: 15/12/2025 14:00)");
-        return res.status(200).send("invalid_date_format");
-      }
-
-      const dataLocal = new Date(iso);
-      // ---------------------- LIMITE DE HORÁRIO ----------------------
-
-      // extrai hora/minuto usando timezone de Fortaleza
-      const hora = dataLocal.toLocaleString("pt-BR", {
-        timeZone: "America/Fortaleza",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false
-      });
-
-      const [h, m] = hora.split(":").map(Number);
-
-      // bloqueia antes das 08:00 e após 18:00
-      if (h < 9 || h > 18 || (h === 18 && m > 0)) {
-        await sendMessage(
-          from,
-          "⚠️ *Horário indisponível.*\n\nAtendemos somente entre *09:00 às 18:00*.\nEnvie outro horário."
-        );
-        return res.status(200).send("invalid_time");
-      }
-
-      const diaSemana = dataLocal.getDay(); // 0=Dom,1=Seg,...
-
-      if (diaSemana === 2 || diaSemana === 5) {
-        await sendMessage(from, "❌ Não realizo atendimentos às *terças* e *sextas-feiras*.\nPor favor, envie outra data. 😊");
-        return res.status(200).send("day_blocked");
-      }
-
-      const startISO = iso;
-      const endISO = new Date(new Date(iso).getTime() + 60 * 60000).toISOString();
-      let free;
-      try {
-        free = await isTimeSlotFree(startISO, endISO);
-      } catch (err) {
-        console.error("Erro ao verificar disponibilidade:", err);
-        await sendMessage(from, "⚠️ Não consegui verificar o horário. Tente novamente mais tarde.");
-        return res.status(200).send("calendar_check_error");
-      }
-
-      if (!free) {
-        await sendMessage(from, "❌ Esse horário está ocupado. Envie outro horário.");
-        return res.status(200).send("busy");
-      }
-
-      state.temp.startISO = startISO;
-      state.temp.endISO = endISO;
-      state.step = "ask_name";
-      await setUserState(from, state);
-
-      await sendMessage(from, "Ótimo! Agora envie seu *nome completo* para confirmar o agendamento.");
-      return res.status(200).send("ask_name_sent");
-    }
-
     // ---------- RECEBER NOME E CRIAR EVENTO ----------
     if (state.step === "ask_name") {
       const nome = text;
@@ -388,7 +322,12 @@ export default async function handler(req, res) {
 
       state.temp.name = nome;
 
-      let event;
+      let event = null;
+      const startLocal = new Date(state.temp.startISO).toLocaleString("pt-BR", {
+        timeZone: "America/Fortaleza"
+      });
+
+      // 1️⃣ CRIA EVENTO NO GOOGLE CALENDAR
       try {
         event = await createEvent({
           summary: `Consulta - ${nome}`,
@@ -396,29 +335,31 @@ export default async function handler(req, res) {
           startISO: state.temp.startISO,
           durationMinutes: 60,
         });
-        const startLocal = new Date(state.temp.startISO).toLocaleString("pt-BR", {
-          timeZone: "America/Fortaleza"
-        });
+      } catch (err) {
+        console.error("❌ Erro ao criar evento no Google Calendar:", err);
+      }
 
+      if (!event) {
+        await sendMessage(from, "❌ Erro ao agendar. Tente novamente mais tarde.");
+        await setUserState(from, { step: "menu", temp: {} });
+        return res.status(200).send("event_error");
+      }
+
+      // 2️⃣ NOTIFICA ADMIN (NÃO BLOQUEANTE)
+      try {
         await notifyAdminNewAppointment({
           paciente: nome,
           telefone: from,
           data: startLocal
         });
-
       } catch (err) {
-        console.error("Erro ao criar evento:", err);
-        event = null;
+        console.error(
+          "⚠️ Falha ao notificar admin no WhatsApp:",
+          err?.response?.data || err
+        );
       }
 
-      if (!event) {
-        await sendMessage(from, "❌ Erro ao agendar. Tente novamente mais tarde.");
-        state.step = "menu";
-        state.temp = {};
-        await setUserState(from, state);
-        return res.status(200).send("event_error");
-      }
-
+      // 3️⃣ SALVA NA PLANILHA
       try {
         await appendRow([
           new Date().toLocaleString(),
@@ -432,8 +373,11 @@ export default async function handler(req, res) {
         console.error("Erro ao salvar na planilha:", err);
       }
 
-      const startLocal = new Date(state.temp.startISO).toLocaleString("pt-BR", { timeZone: "America/Fortaleza" });
-      await sendMessage(from, `✅ *Agendamento confirmado!*\n\n👤 ${nome}\n📅 ${startLocal}\nProcedimento: ${state.temp.procedimento}\n⏱️ Duração: 1h\n\nSe precisar remarcar, entre em contato.`);
+      // 4️⃣ CONFIRMA PARA O PACIENTE
+      await sendMessage(
+        from,
+        `✅ *Agendamento confirmado!*\n\n👤 ${nome}\n📅 ${startLocal}\nProcedimento: ${state.temp.procedimento}\n⏱️ Duração: 1h\n\nSe precisar remarcar, entre em contato.`
+      );
 
       state.step = "perguntar_algo_mais";
       await setUserState(from, state);
@@ -445,6 +389,7 @@ export default async function handler(req, res) {
 
       return res.status(200).send("agendamento_confirmado");
     }
+
 
     // ---------- PERGUNTAR SE QUER MAIS ALGO ----------
     if (state.step === "perguntar_algo_mais") {
