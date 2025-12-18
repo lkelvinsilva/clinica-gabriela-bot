@@ -315,6 +315,7 @@ export default async function handler(req, res) {
     // ---------- RECEBER NOME E CRIAR EVENTO ----------
     if (state.step === "ask_name") {
       const nome = text;
+
       if (!nome || nome.length < 2) {
         await sendMessage(from, "Por favor envie seu nome completo.");
         return res.status(200).send("invalid_name");
@@ -322,12 +323,7 @@ export default async function handler(req, res) {
 
       state.temp.name = nome;
 
-      let event = null;
-      const startLocal = new Date(state.temp.startISO).toLocaleString("pt-BR", {
-        timeZone: "America/Fortaleza"
-      });
-
-      // 1️⃣ CRIA EVENTO NO GOOGLE CALENDAR
+      let event;
       try {
         event = await createEvent({
           summary: `Consulta - ${nome}`,
@@ -337,6 +333,7 @@ export default async function handler(req, res) {
         });
       } catch (err) {
         console.error("❌ Erro ao criar evento no Google Calendar:", err);
+        event = null;
       }
 
       if (!event) {
@@ -345,12 +342,16 @@ export default async function handler(req, res) {
         return res.status(200).send("event_error");
       }
 
-      // 2️⃣ NOTIFICA ADMIN (NÃO BLOQUEANTE)
+      const startLocal = new Date(state.temp.startISO).toLocaleString("pt-BR", {
+        timeZone: "America/Fortaleza",
+      });
+
+      // 👇 NOTIFICA ADMIN (NÃO BLOQUEIA O USUÁRIO)
       try {
         await notifyAdminNewAppointment({
           paciente: nome,
           telefone: from,
-          data: startLocal
+          data: startLocal,
         });
       } catch (err) {
         console.error(
@@ -359,7 +360,6 @@ export default async function handler(req, res) {
         );
       }
 
-      // 3️⃣ SALVA NA PLANILHA
       try {
         await appendRow([
           new Date().toLocaleString(),
@@ -373,7 +373,6 @@ export default async function handler(req, res) {
         console.error("Erro ao salvar na planilha:", err);
       }
 
-      // 4️⃣ CONFIRMA PARA O PACIENTE
       await sendMessage(
         from,
         `✅ *Agendamento confirmado!*\n\n👤 ${nome}\n📅 ${startLocal}\nProcedimento: ${state.temp.procedimento}\n⏱️ Duração: 1h\n\nSe precisar remarcar, entre em contato.`
@@ -389,6 +388,7 @@ export default async function handler(req, res) {
 
       return res.status(200).send("agendamento_confirmado");
     }
+
 
 
     // ---------- PERGUNTAR SE QUER MAIS ALGO ----------
