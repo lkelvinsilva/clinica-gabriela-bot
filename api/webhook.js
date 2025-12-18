@@ -339,7 +339,7 @@ export default async function handler(req, res) {
     state.step = "ask_name";
     await setUserState(from, state);
 
-    await sendMessage(from, "Perfeito! Agora me diga seu *nome completo* 😊");
+    await sendMessage(from, "Perfeito! Agora me diga seu *Nome Completo* 😊");
     return res.status(200).send("ask_name");
   }
 
