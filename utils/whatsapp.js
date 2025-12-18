@@ -7,10 +7,10 @@ export async function notifyAdminNewAppointment({
 }) {
   const payload = {
     messaging_product: "whatsapp",
-    to: process.env.ADMIN_PHONE, // SEU WhatsApp pessoal
+    to: process.env.ADMIN_PHONE, // WhatsApp do admin
     type: "template",
     template: {
-      name: "nova_consulta_admin_utilidade", // nome EXATO aprovado
+      name: "nova_consulta_admin_utilidade", // TEMPLATE DE UTILIDADE
       language: {
         code: "pt_BR"
       },
