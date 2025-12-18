@@ -313,6 +313,37 @@ export default async function handler(req, res) {
     }
 
     // ---------- RECEBER NOME E CRIAR EVENTO ----------
+   
+  if (state.step === "ask_datetime") {
+    const iso = parseDateTime(text);
+
+    if (!iso) {
+      await sendMessage(
+        from,
+        "❌ Não entendi a data.\nUse o formato: 15/12/2025 14:00"
+      );
+      return res.status(200).send("invalid_datetime");
+    }
+
+    const livre = await isTimeSlotFree(iso);
+
+    if (!livre) {
+      await sendMessage(
+        from,
+        "⛔ Esse horário não está disponível.\nEnvie outra data e horário."
+      );
+      return res.status(200).send("slot_busy");
+    }
+
+    state.temp.startISO = iso;
+    state.step = "ask_name";
+    await setUserState(from, state);
+
+    await sendMessage(from, "Perfeito! Agora me diga seu *nome completo* 😊");
+    return res.status(200).send("ask_name");
+  }
+
+   
     if (state.step === "ask_name") {
       const nome = text;
 
