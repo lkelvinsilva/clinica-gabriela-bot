@@ -15,8 +15,8 @@ export async function isTimeSlotFree(startISO, endISO) {
 
   const res = await calendar.freebusy.query({
     requestBody: {
-      timeMin: startISO,
-      timeMax: endISO,
+      timeMin:start.toISOString(),
+      timeMax: end.toISOString(), 
       timeZone: process.env.TIMEZONE || "America/Fortaleza",
       items: [{ id: process.env.GOOGLE_CALENDAR_ID }]
     }
