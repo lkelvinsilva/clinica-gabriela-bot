@@ -9,22 +9,28 @@ function getAuth() {
   );
 }
 
-export async function isTimeSlotFree(startISO, endISO) {
+export async function isTimeSlotFree(startISO, durationMinutes = 60) {
   const auth = getAuth();
   const calendar = google.calendar({ version: "v3", auth });
 
+  const start = new Date(startISO);
+  const end = new Date(start.getTime() + durationMinutes * 60000);
+
   const res = await calendar.freebusy.query({
     requestBody: {
-      timeMin:start.toISOString(),
-      timeMax: end.toISOString(), 
+      timeMin: start.toISOString(),
+      timeMax: end.toISOString(),
       timeZone: process.env.TIMEZONE || "America/Fortaleza",
       items: [{ id: process.env.GOOGLE_CALENDAR_ID }]
     }
   });
 
-  const busy = res.data.calendars?.[process.env.GOOGLE_CALENDAR_ID]?.busy || [];
+  const busy =
+    res.data.calendars?.[process.env.GOOGLE_CALENDAR_ID]?.busy || [];
+
   return busy.length === 0;
 }
+
 
 export async function createEvent({ summary, description, startISO, durationMinutes = 60, attendees = [] }) {
   const auth = getAuth();

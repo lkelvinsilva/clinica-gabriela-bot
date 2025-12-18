@@ -325,7 +325,7 @@ export default async function handler(req, res) {
       return res.status(200).send("invalid_datetime");
     }
 
-    const livre = await isTimeSlotFree(iso);
+    const livre = await isTimeSlotFree(iso, 60);
 
     if (!livre) {
       await sendMessage(
