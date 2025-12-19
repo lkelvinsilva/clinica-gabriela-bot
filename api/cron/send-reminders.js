@@ -1,4 +1,4 @@
-import { listUpcomingEvents } from "../../utils/googleCalendar";
+import { listUpcomingEvents } from "../../utils/googleCalendar.js";
 import { sendConfirmationTemplate } from "../../utils/whatsapp.js";
 import { setUserState } from "../../utils/state.js";
 
