@@ -1,54 +1,76 @@
 import axios from "axios";
 
-export async function sendConfirmationTemplate({ to, nome, data }) {
-  return axios.post(
+/* 🔔 ADMIN – nova consulta */
+export async function notifyAdminNewAppointment({
+  paciente,
+  telefone,
+  data
+}) {
+  const payload = {
+    messaging_product: "whatsapp",
+    to: process.env.ADMIN_PHONE,
+    type: "template",
+    template: {
+      name: "nova_consulta_admin_utilidade",
+      language: { code: "pt_BR" },
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: paciente },
+            { type: "text", text: telefone },
+            { type: "text", text: data }
+          ]
+        }
+      ]
+    }
+  };
+
+  await axios.post(
     `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
-    {
-      messaging_product: "whatsapp",
-      to,
-      type: "template",
-      template: {
-        name: "confirmacao_consulta_24h",
-        language: { code: "pt_BR" },
-        components: [
-          {
-            type: "body",
-            parameters: [
-              { type: "text", text: nome },
-              { type: "text", text: data },
-            ],
-          },
-        ],
-      },
-    },
+    payload,
     {
       headers: {
         Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        "Content-Type": "application/json",
-      },
+        "Content-Type": "application/json"
+      }
     }
   );
 }
 
-export async function  notifyAdminNewAppointment({ paciente, telefone, data }) {
-  return axios.post(
+/* 📩 PACIENTE – confirmação */
+export async function sendConfirmationTemplate({
+  to,
+  paciente,
+  data
+}) {
+  const payload = {
+    messaging_product: "whatsapp",
+    to,
+    type: "template",
+    template: {
+      name: "nova_consulta_admin_utilidade", // seu template aprovado
+      language: { code: "pt_BR" },
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: paciente },
+            { type: "text", text: data }
+          ]
+        }
+      ]
+    }
+  };
+
+  await axios.post(
     `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
-    {
-      messaging_product: "whatsapp",
-      to: process.env.ADMIN_PHONE,
-      text: {
-        body:
-          `⏰ *Lembrete enviado*\n\n` +
-          `Paciente: ${paciente}\n` +
-          `Telefone: ${telefone}\n` +
-          `Consulta: ${data}`,
-      },
-    },
+    payload,
     {
       headers: {
         Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        "Content-Type": "application/json",
-      },
+        "Content-Type": "application/json"
+      }
     }
   );
 }
