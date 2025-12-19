@@ -30,7 +30,7 @@ export async function sendConfirmationTemplate({ to, nome, data }) {
   );
 }
 
-export async function notifyAdminReminder({ paciente, telefone, data }) {
+export async function  notifyAdminNewAppointment({ paciente, telefone, data }) {
   return axios.post(
     `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
     {

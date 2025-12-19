@@ -2,7 +2,7 @@ import axios from "axios";
 import { getUserState, setUserState, isDuplicateMessage } from "../utils/state.js";
 import { isTimeSlotFree, createEvent } from "../utils/googleCalendar.js";
 import { appendRow } from "../utils/googleSheets.js";
-import { notifyAdminNewAppointment } from "../utils/whatsapp.js";
+import { notifyAdminReminder } from "../utils/whatsapp.js";
 
 // ---------------------- PARSE DE DATA ----------------------
 function parseDateTime(text) {
