@@ -1,6 +1,6 @@
-import { listUpcomingEvents } from "../utils/googleCalendar.js";
-import { sendConfirmationTemplate } from "../utils/whatsapp.js";
-import { setUserState } from "../utils/state.js";
+import { listUpcomingEvents } from "../../utils/googleCalendar";
+import { sendConfirmationTemplate } from "../../utils/whatsapp.js";
+import { setUserState } from "../../utils/state.js";
 
 export default async function handler(req, res) {
 
