@@ -2,7 +2,7 @@ import "dotenv/config";
 import { sendWhatsAppMessage } from "./utils/whatsapp.js";
 
 await sendWhatsAppMessage(
-  "5585992883317", // seu número com DDI
+  "5585994000246", // seu número com DDI
   "✅ Teste de mensagem do bot"
 );
 
