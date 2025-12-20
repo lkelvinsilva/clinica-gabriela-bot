@@ -14,6 +14,7 @@ function parseDateTime(text) {
 
 // ---------------------- ENVIO DE MENSAGEM SIMPLES ----------------------
 async function sendMessage(to, text) {
+    console.log("PHONE_NUMBER_ID sendo usado:", process.env.PHONE_NUMBER_ID);
   try {
     await axios.post(
       `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
