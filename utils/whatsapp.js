@@ -49,7 +49,7 @@ export async function sendConfirmationTemplate({
     to,
     type: "template",
     template: {
-      name: "nova_consulta_admin", // seu template aprovado
+      name: "confirmacao_consulta_paciente", // seu template aprovado
       language: { code: "pt_BR" },
       components: [
         {
