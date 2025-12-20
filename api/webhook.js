@@ -16,7 +16,7 @@ function parseDateTime(text) {
 async function sendMessage(to, text) {
   try {
     await axios.post(
-      `https://graph.facebook.com/v19.0/${process.env.ADMIN_PHON}/messages`,
+      `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
       {
         messaging_product: "whatsapp",
         to,
