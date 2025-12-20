@@ -5,7 +5,7 @@ export default async function handler(req, res) {
     const result = await sendConfirmationTemplate({
       to: "5585994000246", // Substitua pelo SEU NÚMERO DE WHATSAPP para testar
       paciente: "Luã",
-      data: "20/12/2025 às 15:00"
+      data: "21/12/2025 às 15:00"
     });
 
     res.status(200).json({
