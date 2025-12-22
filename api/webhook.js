@@ -126,14 +126,14 @@ export default async function handler(req, res) {
 
     if (state.step === "aguardando_confirmacao") {
 
-      if (lower === "confirmar_consulta") {
+      if (lower === "Confirmar") {
         await sendMessage(from, "✅ Consulta confirmada! Te aguardamos 💚");
 
         await setUserState(from, { step: "menu", temp: {} });
         return res.status(200).send("confirmed");
       }
 
-      if (lower === "desmarcar_consulta") {
+      if (lower === "Cancelar") {
         await sendMessage(from, "❌ Consulta desmarcada. Obrigada por avisar.");
 
         // AVISA VOCÊ
