@@ -95,27 +95,35 @@ export default async function handler(req, res) {
     const entry = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
     if (!entry) return res.status(200).send("no_message");
 
-    const msgId = entry.id;
-    const from = entry.from;
-    let incomingText = "";
+   const message = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+if (!message) return res.status(200).send("no_message");
 
-    if (entry.text?.body) {
-      incomingText = entry.text.body;
-    }
+const msgId = message.id;
+const from = message.from;
 
-    if (entry.interactive?.button_reply) {
-      incomingText =
-        entry.interactive.button_reply.id ||
-        entry.interactive.button_reply.title;
-    }
+let incomingText = "";
 
-    const text = String(incomingText || "")
-  .trim()
-  .toLowerCase();
-    const lower = text.toLowerCase();
-    const numeric = lower.replace(/[^0-9]/g, "");
+// ✅ TEXTO DIGITADO
+if (message.type === "text" && message.text?.body) {
+  incomingText = message.text.body;
+}
 
-    if (!msgId || !from) return res.status(200).send("no_id");
+// ✅ BOTÃO DE TEMPLATE (Cloud API)
+else if (message.type === "button" && message.button?.payload) {
+  incomingText = message.button.payload;
+}
+
+// ✅ BOTÃO INTERATIVO (listas / botões não-template)
+else if (message.interactive?.button_reply) {
+  incomingText =
+    message.interactive.button_reply.id ||
+    message.interactive.button_reply.title;
+}
+
+// normalização FINAL
+const text = String(incomingText || "").trim().toLowerCase();
+const lower = text;
+const numeric = lower.replace(/[^0-9]/g, "");
 
     if (await isDuplicateMessage(msgId)) {
       console.log("Mensagem duplicada ignorada:", msgId);
