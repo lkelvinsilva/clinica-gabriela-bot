@@ -335,6 +335,31 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
    
   if (state.step === "ask_datetime") {
     const iso = parseDateTime(text);
+    function isBusinessTime(dateISO) {
+  const date = new Date(dateISO);
+
+  // horário local Fortaleza
+  const local = new Date(
+    date.toLocaleString("en-US", { timeZone: "America/Fortaleza" })
+  );
+
+  const day = local.getDay(); // 0=domingo, 6=sábado
+  const hour = local.getHours();
+  const minute = local.getMinutes();
+  const time = hour + minute / 60;
+
+  // ❌ domingo
+  if (day === 0) return false;
+
+  // 🟢 sábado: 08h–12h
+  if (day === 6) {
+    return time >= 8 && time < 12;
+  }
+
+  // 🟢 seg–sex: 09h–18h
+  return time >= 9 && time < 18;
+}
+
 
     if (!iso) {
       await sendMessage(
@@ -344,15 +369,30 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
       return res.status(200).send("invalid_datetime");
     }
 
-    const livre = await isTimeSlotFree(iso, 60);
+  // ⛔ valida horário de funcionamento
+  if (!isBusinessTime(iso)) {
+    await sendMessage(
+      from,
+      "⏰ *Horário indisponível*\n\n" +
+      "Atendemos nos seguintes horários:\n" +
+      "🟢 *Seg a Sex:* 09h às 18h\n" +
+      "🟢 *Sábado:* 08h às 12h\n" +
+      "❌ *Domingo:* não atendemos\n\n" +
+      "Por favor, envie outra data e horário 😊"
+    );
+    return res.status(200).send("outside_business_hours");
+  }
 
-    if (!livre) {
-      await sendMessage(
-        from,
-        "⛔ Esse horário não está disponível.\nEnvie outra data e horário."
-      );
-      return res.status(200).send("slot_busy");
-    }
+  // ⏳ valida conflito no Google Calendar
+  const livre = await isTimeSlotFree(iso, 60);
+
+  if (!livre) {
+    await sendMessage(
+      from,
+      "⛔ Esse horário já está ocupado.\nEnvie outra data e horário."
+    );
+    return res.status(200).send("slot_busy");
+  }
 
     state.temp.startISO = iso;
     state.step = "ask_name";
