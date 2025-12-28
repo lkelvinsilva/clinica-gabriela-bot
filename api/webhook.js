@@ -74,6 +74,8 @@ async function perguntarAlgoMais(to) {
 
 // ---------------------- HANDLER ----------------------
 export default async function handler(req, res) {
+  // ... dentro do export default async function handler(req, res)
+
   // webhook verification
   if (req.method === "GET") {
     const mode = req.query["hub.mode"];
@@ -95,12 +97,21 @@ export default async function handler(req, res) {
 
     const msgId = entry.id;
     const from = entry.from;
-    const incomingText =
-      (entry.text && entry.text.body) ||
-      (entry.button && entry.button.payload) ||
-      entry.interactive?.button_reply?.id ||
-      "";
-    const text = String(incomingText || "").trim();
+    let incomingText = "";
+
+    if (entry.text?.body) {
+      incomingText = entry.text.body;
+    }
+
+    if (entry.interactive?.button_reply) {
+      incomingText =
+        entry.interactive.button_reply.id ||
+        entry.interactive.button_reply.title;
+    }
+
+    const text = String(incomingText || "")
+  .trim()
+  .toLowerCase();
     const lower = text.toLowerCase();
     const numeric = lower.replace(/[^0-9]/g, "");
 
@@ -124,28 +135,26 @@ export default async function handler(req, res) {
 
         // ---------- CONFIRMAÇÃO / CANCELAMENTO DE CONSULTA ----------
 
-    if (state.step === "aguardando_confirmacao") {
+// ---------- CONFIRMAÇÃO / CANCELAMENTO DE CONSULTA ----------
+if (state.step === "aguardando_confirmacao") {
 
-      if (lower === "confirmar_consulta") {
-        await sendMessage(from, "✅ Consulta confirmada! Te aguardamos 💚");
+  if (text === "confirmar") {
+    await sendMessage(from, "✅ Consulta confirmada! Te aguardamos 💚");
+    await setUserState(from, { step: "menu", temp: {} });
+    return res.status(200).send("confirmed");
+  }
 
-        await setUserState(from, { step: "menu", temp: {} });
-        return res.status(200).send("confirmed");
-      }
+  if (text === "cancelar") {
+    await sendMessage(from, "❌ Consulta desmarcada. Obrigada por avisar.");
+    await setUserState(from, { step: "menu", temp: {} });
+    return res.status(200).send("cancelled");
+  }
 
-      if (lower === "desmarcar_consulta") {
-        await sendMessage(from, "❌ Consulta desmarcada. Obrigada por avisar.");
+  await sendMessage(from, "Por favor, use os botões *Confirmar* ou *Cancelar*.");
+  return res.status(200).send("invalid_confirmation");
+}
+console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
 
-        // AVISA VOCÊ
-        await sendMessage(
-          process.env.ADMIN_PHONE,
-          `⚠️ *Consulta desmarcada*\nPaciente: ${from}`
-        );
-
-        await setUserState(from, { step: "menu", temp: {} });
-        return res.status(200).send("cancelled");
-      }
-    }
 
 
     // ---------- MENU PRINCIPAL ----------

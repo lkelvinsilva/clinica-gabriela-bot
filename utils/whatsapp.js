@@ -11,7 +11,7 @@ export async function notifyAdminNewAppointment({
     to: process.env.ADMIN_PHONE,
     type: "template",
     template: {
-      name: "nova_consulta_admin_utilidade",
+      name: "nova_consulta_admin_utilidade_",
       language: { code: "pt_BR" },
       components: [
         {
@@ -62,6 +62,7 @@ export async function sendConfirmationTemplate({
       ]
     }
   };
+console.log("DEBUG_WHATSAPP_ID_USED:", process.env.PHONE_NUMBER_ID);
 
   await axios.post(
     `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
