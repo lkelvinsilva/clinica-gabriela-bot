@@ -25,6 +25,11 @@ export async function notifyAdminNewAppointment({
       ]
     }
   };
+console.log({
+  phoneNumberId: process.env.PHONE_NUMBER_ID,
+  token: process.env.WHATSAPP_TOKEN?.slice(0, 10),
+  payload
+});
 
   await axios.post(
     `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
