@@ -138,11 +138,16 @@ export default async function handler(req, res) {
 // ---------- CONFIRMAÇÃO / CANCELAMENTO DE CONSULTA ----------
 if (state.step === "aguardando_confirmacao") {
 
+
   if (text === "confirmar") {
     await sendMessage(from, "✅ Consulta confirmada! Te aguardamos 💚");
     await setUserState(from, { step: "menu", temp: {} });
     return res.status(200).send("confirmed");
   }
+
+      if (lower === "Confirmar") {
+        await sendMessage(from, "✅ Consulta confirmada! Te aguardamos 💚");
+
 
   if (text === "cancelar") {
     await sendMessage(from, "❌ Consulta desmarcada. Obrigada por avisar.");
@@ -513,5 +518,3 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
     return res.status(500).send("internal_error");
   }
 }
-
-
