@@ -145,10 +145,6 @@ if (state.step === "aguardando_confirmacao") {
     return res.status(200).send("confirmed");
   }
 
-      if (lower === "Confirmar") {
-        await sendMessage(from, "✅ Consulta confirmada! Te aguardamos 💚");
-
-
   if (text === "cancelar") {
     await sendMessage(from, "❌ Consulta desmarcada. Obrigada por avisar.");
     await setUserState(from, { step: "menu", temp: {} });
