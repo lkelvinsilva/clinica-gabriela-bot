@@ -63,10 +63,11 @@ export async function sendConfirmationTemplate({
     }
   };
 console.log("DEBUG_WHATSAPP_ID_USED:", process.env.PHONE_NUMBER_ID);
-<<<<<<< HEAD
 
-=======
->>>>>>> e38d3f71c301b33481c9012519a0d4e0c85c8375
+
+
+
+
   await axios.post(
     `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
     payload,
