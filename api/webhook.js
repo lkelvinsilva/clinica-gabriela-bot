@@ -1,6 +1,6 @@
 import axios from "axios";
 import { getUserState, setUserState, isDuplicateMessage } from "../utils/state.js";
-import { isTimeSlotFree, createEvent } from "../utils/googleCalendar.js";
+import { isTimeSlotFree, createEvent, getAvailableSlots } from "../utils/googleCalendar.js";
 import { appendRow } from "../utils/googleSheets.js";
 import { notifyAdminNewAppointment,sendConfirmationTemplate } from "../utils/whatsapp.js";
 
@@ -316,7 +316,7 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
       if (lower === "sim_agendar" || lower === "sim") {
         state.step = "ask_datetime";
         await setUserState(from, state);
-        await sendMessage(from, `Perfeito! Vamos agendar *${state.temp.procedimento}*.\n HORÁRIO DE AGENDAMENTO: seg a sex: 09h as 18h. Sáb: 08h as 12h.\nEnvie a data e horário desejados.\nExemplo: 15/12/2025 14:00`);
+        await sendMessage(from, `Perfeito! Vamos agendar *${state.temp.procedimento}*.\n HORÁRIO DE AGENDAMENTO: seg a sex: 09h as 18h. Sáb: 08h as 12h.\n`);
         return res.status(200).send("start_ask_datetime");
       }
 
@@ -333,68 +333,75 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
 
     // ---------- RECEBER NOME E CRIAR EVENTO ----------
    
-  if (state.step === "ask_datetime") {
-    const iso = parseDateTime(text);
-    function isBusinessTime(dateISO) {
-  const date = new Date(dateISO);
+  if (state.step === "ask_period") {
+    await sendButtons(from, "Qual período você prefere?", [
+      { id: "manha", title: "Manhã" },
+      { id: "tarde", title: "Tarde" },
+      { id: "qualquer", title: "Qualquer horário" },
+    ]);
 
-  // horário local Fortaleza
-  const local = new Date(
-    date.toLocaleString("en-US", { timeZone: "America/Fortaleza" })
-  );
-
-  const day = local.getDay(); // 0=domingo, 6=sábado
-  const hour = local.getHours();
-  const minute = local.getMinutes();
-  const time = hour + minute / 60;
-
-  // ❌ domingo
-  if (day === 0) return false;
-
-  // 🟢 sábado: 08h–12h
-  if (day === 6) {
-    return time >= 8 && time < 12;
+    state.step = "wait_period";
+    await setUserState(from, state);
+    return res.status(200).send("ask_period");
   }
 
-  // 🟢 seg–sex: 09h–18h
-  return time >= 9 && time < 18;
+  if (state.step === "wait_period") {
+  const period = lower;
+
+  const slots = await getAvailableSlots({
+    period,
+    durationMinutes: 60,
+  });
+
+  if (!slots || !slots.length) {
+    await sendMessage(from, "😕 No momento não encontrei horários disponíveis.");
+    state.step = "menu";
+    await setUserState(from, state);
+    return res.status(200).send("no_slots");
+  }
+
+  state.temp.slots = slots;
+
+  let msg = "Tenho esses horários disponíveis 😊\n\n";
+  slots.slice(0, 4).forEach((slot, i) => {
+    msg += `${i + 1}️⃣ ${slot.label}\n`;
+  });
+
+  msg += "\nDigite o número da opção.";
+  await sendMessage(from, msg);
+
+  state.step = "choose_slot";
+  await setUserState(from, state);
+  return res.status(200).send("show_slots");
 }
 
+if (state.step === "choose_slot") {
+  const index = Number(numeric) - 1;
+  const slot = state.temp.slots?.[index];
 
-    if (!iso) {
-      await sendMessage(
-        from,
-        "❌ Não entendi a data.\nUse o formato: 15/12/2025 14:00"
-      );
-      return res.status(200).send("invalid_datetime");
-    }
-
-  // ⛔ valida horário de funcionamento
-  if (!isBusinessTime(iso)) {
-    await sendMessage(
-      from,
-      "⏰ *Horário indisponível*\n\n" +
-      "Atendemos nos seguintes horários:\n" +
-      "🟢 *Seg a Sex:* 09h às 18h\n" +
-      "🟢 *Sábado:* 08h às 12h\n" +
-      "❌ *Domingo:* não atendemos\n\n" +
-      "Por favor, envie outra data e horário 😊"
-    );
-    return res.status(200).send("outside_business_hours");
+  if (!slot) {
+    await sendMessage(from, "❌ Opção inválida. Escolha um número da lista.");
+    return res.status(200).send("invalid_slot");
   }
 
-  // ⏳ valida conflito no Google Calendar
-  const livre = await isTimeSlotFree(iso, 60);
+  state.temp.selectedSlot = slot;
 
-  if (!livre) {
-    await sendMessage(
-      from,
-      "⛔ Esse horário já está ocupado.\nEnvie outra data e horário."
-    );
-    return res.status(200).send("slot_busy");
-  }
+  await sendButtons(
+    from,
+    `Confirma este horário?\n\n📅 ${slot.label}`,
+    [
+      { id: "confirmar", title: "Confirmar" },
+      { id: "cancelar", title: "Escolher outro" },
+    ]
+  );
 
-    state.temp.startISO = iso;
+  state.step = "confirm_slot";
+  await setUserState(from, state);
+  return res.status(200).send("confirm_slot");
+}
+
+if (state.step === "confirm_slot") {
+  if (lower === "confirmar") {
     state.step = "ask_name";
     await setUserState(from, state);
 
@@ -402,87 +409,89 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
     return res.status(200).send("ask_name");
   }
 
-   
+  if (lower === "cancelar") {
+    state.step = "ask_period";
+    await setUserState(from, state);
+    return res.status(200).send("choose_another_slot");
+  }
+
+  await sendMessage(from, "Use os botões *Confirmar* ou *Escolher outro*.");
+  return res.status(200).send("invalid_confirm");
+}
+
     if (state.step === "ask_name") {
-      const nome = text;
+  const nome = text;
 
-      if (!nome || nome.length < 2) {
-        await sendMessage(from, "Por favor envie seu nome completo.");
-        return res.status(200).send("invalid_name");
-      }
+  if (!nome || nome.length < 2) {
+    await sendMessage(from, "Por favor envie seu nome completo.");
+    return res.status(200).send("invalid_name");
+  }
 
-      state.temp.name = nome;
+  state.temp.name = nome;
 
-      let event;
-      try {
-        event = await createEvent({
-          summary: `Consulta - ${nome}`,
-          description: `Agendamento via WhatsApp — ${nome} (${from}) - Procedimento: ${state.temp.procedimento}`,
-          startISO: state.temp.startISO,
-          durationMinutes: 60,
-        });
-      } catch (err) {
-        console.error("❌ Erro ao criar evento no Google Calendar:", err);
-        event = null;
-      }
+  let event;
+  try {
+    event = await createEvent({
+      summary: `Consulta - ${nome}`,
+      description: `Agendamento via WhatsApp — ${nome} (${from}) - Procedimento: ${state.temp.procedimento}`,
+      startISO: state.temp.selectedSlot.iso,
+      durationMinutes: 60,
+    });
+  } catch (err) {
+    console.error("❌ Erro ao criar evento:", err);
+    await sendMessage(from, "❌ Erro ao agendar. Tente novamente mais tarde.");
+    await setUserState(from, { step: "menu", temp: {} });
+    return res.status(200).send("event_error");
+  }
 
-      if (!event) {
-        await sendMessage(from, "❌ Erro ao agendar. Tente novamente mais tarde.");
-        await setUserState(from, { step: "menu", temp: {} });
-        return res.status(200).send("event_error");
-      }
+  const startLocal = new Date(state.temp.selectedSlot.iso).toLocaleString("pt-BR", {
+    timeZone: "America/Fortaleza",
+  });
 
-      const startLocal = new Date(state.temp.startISO).toLocaleString("pt-BR", {
-        timeZone: "America/Fortaleza",
-      });
+  // ✅ NOTIFICA ADMIN
+  try {
+    await notifyAdminNewAppointment({
+      paciente: nome,
+      telefone: from,
+      data: startLocal,
+    });
+  } catch (err) {
+    console.error("⚠️ Erro ao notificar admin:", err);
+  }
 
-      // 👇 NOTIFICA ADMIN (NÃO BLOQUEIA O USUÁRIO)
-      try {
-        await notifyAdminNewAppointment({
-          paciente: nome,
-          telefone: from,
-          data: startLocal,
-        });
-      } catch (err) {
-        console.error(
-          "⚠️ Falha ao notificar admin no WhatsApp:",
-          err?.response?.data || err
-        );
-      }
+  // ✅ SALVA NA PLANILHA
+  try {
+    await appendRow([
+      new Date().toLocaleString(),
+      from,
+      nome,
+      state.temp.procedimento,
+      state.temp.selectedSlot.iso,
+      event.htmlLink || "",
+    ]);
+  } catch (err) {
+    console.error("Erro ao salvar na planilha:", err);
+  }
 
-      try {
-        await appendRow([
-          new Date().toLocaleString(),
-          from,
-          nome,
-          state.temp.procedimento,
-          state.temp.startISO,
-          event.htmlLink || "",
-        ]);
-      } catch (err) {
-        console.error("Erro ao salvar na planilha:", err);
-      }
+  // ✅ CONFIRMA PARA O USUÁRIO
+  await sendMessage(
+    from,
+    `✅ *Agendamento confirmado!*\n\n👤 ${nome}\n📅 ${startLocal}\nProcedimento: ${state.temp.procedimento}\n⏱️ Duração: 1h`
+  );
 
-      await sendMessage(
-        from,
-        `✅ *Agendamento confirmado!*\n\n👤 ${nome}\n📅 ${startLocal}\nProcedimento: ${state.temp.procedimento}\n⏱️ Duração: 1h\n\nSe precisar remarcar, entre em contato.`
-      );
+  state.step = "perguntar_algo_mais";
+  await setUserState(from, state);
 
-      state.step = "perguntar_algo_mais";
-      await setUserState(from, state);
+  await sendButtons(from, "Quer minha ajuda com mais alguma coisa?", [
+    { id: "help_sim", title: "Sim" },
+    { id: "help_nao", title: "Não" },
+  ]);
 
-      await sendButtons(from, "Quer minha ajuda com mais alguma coisa?", [
-        { id: "help_sim", title: "Sim" },
-        { id: "help_nao", title: "Não" },
-      ]);
-
-      return res.status(200).send("agendamento_confirmado");
-    }
-
-
+  return res.status(200).send("agendamento_confirmado");
+}
 
     // ---------- PERGUNTAR SE QUER MAIS ALGO ----------
-    if (state.step === "perguntar_algo_mais") {
+      if (state.step === "perguntar_algo_mais") {
       if (lower === "help_sim" || lower === "sim") {
         state.step = "menu";
         state.temp = {};
@@ -504,7 +513,7 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
     }
 
     // ----------------- FLUXO HARMONIZAÇÃO -----------------
-    if (state.step === "harmonizacao_procedimento") {
+    else if (state.step === "harmonizacao_procedimento") {
       const procedimentos = {
         "1": "Preenchimento Labial",
         "2": "Toxina Botulínica (Botox)",
@@ -553,12 +562,8 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
 
       return res.status(200).send("harmonizacao_direcionado");
     }
-
-    // fallback padrão
-    await sendMessage(from, "Não entendi. Digite *menu* para ver as opções.");
-    return res.status(200).send("default");
   } catch (err) {
-    console.error("Erro no webhook:", err);
-    return res.status(500).send("internal_error");
+    console.error("🔥 ERRO GERAL NO HANDLER:", err);
+    return res.status(200).send("internal_error");
   }
 }

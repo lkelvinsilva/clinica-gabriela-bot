@@ -68,3 +68,57 @@ export async function listUpcomingEvents(timeMinISO, timeMaxISO) {
   return res.data.items || [];
 }
 
+export async function getAvailableSlots({
+  daysAhead = 5,
+  durationMinutes = 60,
+  period = "qualquer",
+}) {
+  const auth = getAuth();
+  const calendar = google.calendar({ version: "v3", auth });
+
+  const timezone = process.env.TIMEZONE || "America/Fortaleza";
+  const calendarId = process.env.GOOGLE_CALENDAR_ID;
+
+  const now = new Date();
+  const slots = [];
+
+  for (let d = 0; d < daysAhead; d++) {
+    const day = new Date(now);
+    day.setDate(now.getDate() + d);
+
+    const startHour = period === "tarde" ? 13 : 9;
+    const endHour = period === "manha" ? 12 : 18;
+
+    for (let h = startHour; h <= endHour - 1; h++) {
+      const start = new Date(day);
+      start.setHours(h, 0, 0, 0);
+
+      const end = new Date(start.getTime() + durationMinutes * 60000);
+
+      const res = await calendar.freebusy.query({
+        requestBody: {
+          timeMin: start.toISOString(),
+          timeMax: end.toISOString(),
+          timeZone: timezone,
+          items: [{ id: calendarId }],
+        },
+      });
+
+      const busy =
+        res.data.calendars?.[calendarId]?.busy || [];
+
+      if (busy.length === 0) {
+        slots.push({
+          iso: start.toISOString(),
+          label: start.toLocaleString("pt-BR", {
+            timeZone: timezone,
+            dateStyle: "short",
+            timeStyle: "short",
+          }),
+        });
+      }
+    }
+  }
+
+  return slots;
+}
