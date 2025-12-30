@@ -310,40 +310,22 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
 
       return res.status(200).send("odontologia_choice_sent");
     }
-
-    // confirmação agendamento (odontologia)
-    if (state.step === "odontologia_confirmar_agendamento") {
-      if (lower === "sim_agendar" || lower === "sim") {
-        state.step = "ask_datetime";
-        await setUserState(from, state);
-        await sendMessage(from, `Perfeito! Vamos agendar *${state.temp.procedimento}*.\n HORÁRIO DE AGENDAMENTO: seg a sex: 09h as 18h. Sáb: 08h as 12h.\n`);
-        return res.status(200).send("start_ask_datetime");
-      }
-
-      if (lower === "nao_agendar" || lower === "não" || lower === "nao") {
-        state.step = "odontologia_menu";
-        await setUserState(from, state);
-        await sendMessage(from, `Tudo bem! Digite o número do procedimento novamente ou *menu* para voltar.`);
-        return res.status(200).send("back_to_odontologia_menu");
-      }
-
-      await sendMessage(from, "Por favor use os botões *Sim* ou *Não* ou escreva 'sim' / 'não'.");
-      return res.status(200).send("invalid_confirm_input");
-    }
-
-    // ---------- RECEBER NOME E CRIAR EVENTO ----------
    
-  if (state.step === "ask_period") {
+  if (state.step === "odontologia_confirmar_agendamento") {
+  if (lower === "sim_agendar" || lower === "sim") {
+    state.step = "ask_period";
+    await setUserState(from, state);
+
     await sendButtons(from, "Qual período você prefere?", [
       { id: "manha", title: "Manhã" },
       { id: "tarde", title: "Tarde" },
       { id: "qualquer", title: "Qualquer horário" },
     ]);
 
-    state.step = "wait_period";
-    await setUserState(from, state);
     return res.status(200).send("ask_period");
   }
+}
+
 
   if (state.step === "wait_period") {
   const period = lower;
