@@ -96,7 +96,7 @@ export async function getAvailableSlots({
 
       // 🔹 filtro de período
       if (period === "manha") {
-        endHour = Math.min(endHour, 12);
+        endHour = Math.min(endHour, 11);
       }
 
       if (period === "tarde") {

@@ -372,7 +372,7 @@ if (state.step === "choose_slot") {
     `Confirma este horário?\n\n📅 ${slot.label}`,
     [
       { id: "confirmar", title: "Confirmar" },
-      { id: "cancelar", title: "Escolher outro" },
+      { id: "escolher_outro", title: "Escolher outro" },
     ]
   );
 
@@ -382,22 +382,27 @@ if (state.step === "choose_slot") {
 }
 
 if (state.step === "confirm_slot") {
+
   if (lower === "confirmar") {
     state.step = "ask_name";
     await setUserState(from, state);
-
     await sendMessage(from, "Perfeito! Agora me diga seu *Nome Completo* 😊");
     return res.status(200).send("ask_name");
   }
 
-  if (lower === "cancelar") {
+  if (lower === "escolher_outro") {
     state.step = "ask_period";
+    delete state.temp.selectedSlot;
     await setUserState(from, state);
-    return res.status(200).send("choose_another_slot");
-  }
 
-  await sendMessage(from, "Use os botões *Confirmar* ou *Escolher outro*.");
-  return res.status(200).send("invalid_confirm");
+    await sendButtons(from, "Qual período você prefere?", [
+      { id: "manha", title: "Manhã" },
+      { id: "tarde", title: "Tarde" },
+      { id: "qualquer", title: "Qualquer horário" },
+    ]);
+
+    return res.status(200).send("back_to_period");
+  }
 }
 
     if (state.step === "ask_name") {
