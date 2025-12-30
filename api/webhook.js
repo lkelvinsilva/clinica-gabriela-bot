@@ -326,7 +326,6 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
   }
 }
 
-
   if (state.step === "wait_period") {
   const period = lower;
 
