@@ -85,40 +85,98 @@ export async function getAvailableSlots({
   for (let d = 0; d < daysAhead; d++) {
     const day = new Date(now);
     day.setDate(now.getDate() + d);
+    day.setHours(0, 0, 0, 0);
 
-    const startHour = period === "tarde" ? 13 : 9;
-    const endHour = period === "manha" ? 12 : 18;
+    const businessBlocks = getBusinessHours(day);
+    if (!businessBlocks) continue; // domingo ou feriado
 
-    for (let h = startHour; h <= endHour - 1; h++) {
-      const start = new Date(day);
-      start.setHours(h, 0, 0, 0);
+    for (const block of businessBlocks) {
+      let startHour = block.start;
+      let endHour = block.end;
 
-      const end = new Date(start.getTime() + durationMinutes * 60000);
+      // 🔹 filtro de período
+      if (period === "manha") {
+        endHour = Math.min(endHour, 12);
+      }
 
-      const res = await calendar.freebusy.query({
-        requestBody: {
-          timeMin: start.toISOString(),
-          timeMax: end.toISOString(),
-          timeZone: timezone,
-          items: [{ id: calendarId }],
-        },
-      });
+      if (period === "tarde") {
+        startHour = Math.max(startHour, 13);
+      }
 
-      const busy =
-        res.data.calendars?.[calendarId]?.busy || [];
+      for (let h = startHour; h <= endHour - durationMinutes / 60; h++) {
+        const start = new Date(day);
+        start.setHours(h, 0, 0, 0);
 
-      if (busy.length === 0) {
-        slots.push({
-          iso: start.toISOString(),
-          label: start.toLocaleString("pt-BR", {
+        // ❌ não permitir horários passados
+        if (start < new Date()) continue;
+
+        const end = new Date(start.getTime() + durationMinutes * 60000);
+
+        const res = await calendar.freebusy.query({
+          requestBody: {
+            timeMin: start.toISOString(),
+            timeMax: end.toISOString(),
             timeZone: timezone,
-            dateStyle: "short",
-            timeStyle: "short",
-          }),
+            items: [{ id: calendarId }],
+          },
         });
+
+        const busy = res.data.calendars?.[calendarId]?.busy || [];
+
+        if (busy.length === 0) {
+          slots.push({
+            iso: start.toISOString(),
+            label: start.toLocaleString("pt-BR", {
+              timeZone: timezone,
+              dateStyle: "short",
+              timeStyle: "short",
+            }),
+          });
+        }
       }
     }
   }
 
   return slots;
 }
+
+
+function isHoliday(date) {
+  const holidays = [
+    "01-01", // Confraternização Universal
+    "04-21", // Tiradentes
+    "05-01", // Dia do Trabalhador
+    "09-07", // Independência
+    "10-12", // Nossa Senhora Aparecida
+    "11-02", // Finados
+    "11-15", // Proclamação da República
+    "12-25", // Natal
+  ];
+
+  const mmdd = String(date.getMonth() + 1).padStart(2, "0") +
+               "-" +
+               String(date.getDate()).padStart(2, "0");
+
+  return holidays.includes(mmdd);
+}
+function getBusinessHours(date) {
+  const day = date.getDay(); // 0=Domingo, 6=Sábado
+
+  // ❌ Domingo
+  if (day === 0) return null;
+
+  // ❌ Feriado
+  if (isHoliday(date)) return null;
+
+  // 🟢 Sábado: 08–12 (sem almoço)
+  if (day === 6) {
+    return [{ start: 8, end: 12 }];
+  }
+
+  // 🟢 Seg–Sex: 09–12 e 13–18
+  return [
+    { start: 9, end: 12 },
+    { start: 13, end: 18 },
+  ];
+}
+
