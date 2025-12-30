@@ -313,7 +313,7 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
    
   if (state.step === "odontologia_confirmar_agendamento") {
   if (lower === "sim_agendar" || lower === "sim") {
-    state.step = "ask_period";
+    state.step = "wait_period";
     await setUserState(from, state);
 
     await sendButtons(from, "Qual período você prefere?", [
