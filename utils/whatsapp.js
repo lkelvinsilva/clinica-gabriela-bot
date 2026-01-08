@@ -11,7 +11,7 @@ export async function notifyAdminNewAppointment({
     to: process.env.ADMIN_PHONE,
     type: "template",
     template: {
-      name: "nova_consulta_admin_utilidade_",
+      name: "confirmacao_consulta",
       language: { code: "pt_BR" },
       components: [
         {
