@@ -1,5 +1,13 @@
 import { google } from "googleapis";
 
+function nowInTimezone(timezone) {
+  const now = new Date();
+  return new Date(
+    now.toLocaleString("en-US", { timeZone: timezone })
+  );
+}
+
+
 function getAuth() {
   return new google.auth.JWT(
     process.env.GOOGLE_CLIENT_EMAIL,
@@ -79,7 +87,7 @@ export async function getAvailableSlots({
   const timezone = process.env.TIMEZONE || "America/Fortaleza";
   const calendarId = process.env.GOOGLE_CALENDAR_ID;
 
-  const now = new Date();
+  const now = nowInTimezone(timezone);
   const slots = [];
 
   for (let d = 0; d < daysAhead; d++) {
@@ -170,7 +178,7 @@ function getBusinessHours(date) {
 
   // 🟢 Sábado: 08–12 (sem almoço)
   if (day === 6) {
-    return [{ start: 8, end: 12 }];
+    return [{ start: 9, end: 12 }];
   }
 
   // 🟢 Seg–Sex: 09–12 e 13–18
