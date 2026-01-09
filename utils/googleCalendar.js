@@ -7,6 +7,12 @@ function nowInTimezone(timezone) {
   );
 }
 
+function toCalendarDateTime(date, timezone) {
+  return {
+    dateTime: date.toISOString().replace("Z", ""),
+    timeZone: timezone
+  };
+}
 
 function getAuth() {
   return new google.auth.JWT(
@@ -26,8 +32,9 @@ export async function isTimeSlotFree(startISO, durationMinutes = 60) {
 
   const res = await calendar.freebusy.query({
     requestBody: {
-      timeMin: start.toISOString(),
-      timeMax: end.toISOString(),
+      timeMin: start,
+      timeMax: end,
+
       timeZone: process.env.TIMEZONE || "America/Fortaleza",
       items: [{ id: process.env.GOOGLE_CALENDAR_ID }]
     }
@@ -116,7 +123,7 @@ export async function getAvailableSlots({
         start.setHours(h, 0, 0, 0);
 
         // ❌ não permitir horários passados
-        if (start < new Date()) continue;
+        if (start < now) continue;
 
         const end = new Date(start.getTime() + durationMinutes * 60000);
 
@@ -178,7 +185,7 @@ function getBusinessHours(date) {
 
   // 🟢 Sábado: 08–12 (sem almoço)
   if (day === 6) {
-    return [{ start: 9, end: 12 }];
+    return [{ start: 8, end: 12 }];
   }
 
   // 🟢 Seg–Sex: 09–12 e 13–18
