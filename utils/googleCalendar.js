@@ -194,4 +194,25 @@ function getBusinessHours(date) {
     { start: 13, end: 18 },
   ];
 }
+export function isWithinBusinessHours(date) {
+  const day = date.getDay(); // 0 = domingo
+  const hour = date.getHours();
+
+  // ❌ Domingo
+  if (day === 0) return false;
+
+  // ❌ Feriado
+  if (isHoliday(date)) return false;
+
+  // 🟢 Sábado: 08–12
+  if (day === 6) {
+    return hour >= 8 && hour < 12;
+  }
+
+  // 🟢 Seg–Sex: 09–12 ou 13–18
+  const morning = hour >= 9 && hour < 12;
+  const afternoon = hour >= 13 && hour < 18;
+
+  return morning || afternoon;
+}
 
