@@ -2,7 +2,6 @@ import axios from "axios";
 import { getUserState, setUserState, isDuplicateMessage } from "../utils/state.js";
 import { isTimeSlotFree, createEvent, getAvailableSlots } from "../utils/googleCalendar.js";
 import { isWithinBusinessHours } from "../utils/googleCalendar.js";
-import { isWithinBusinessHours } from "../utils/googleCalendar.js";
 import { appendRow } from "../utils/googleSheets.js";
 import { notifyAdminNewAppointment,sendConfirmationTemplate } from "../utils/whatsapp.js";
 
