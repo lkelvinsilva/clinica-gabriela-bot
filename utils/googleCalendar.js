@@ -93,6 +93,16 @@ export async function getAvailableSlots({
   for (let d = 0; d < daysAhead; d++) {
     const day = new Date(now);
     day.setDate(now.getDate() + d);
+
+    // 🔑 se hoje já passou da manhã, pula manhã
+    if (
+      d === 0 &&
+      period === "manha" &&
+      now.getHours() >= 12
+    ) {
+      continue;
+    }
+
     day.setHours(0, 0, 0, 0);
 
     const businessBlocks = getBusinessHours(day);
@@ -114,16 +124,13 @@ export async function getAvailableSlots({
 
       const stepMinutes = 60;
 
-      let cursor = new Date(
-        new Date(day).toLocaleString("en-US", { timeZone: timezone })
-      );
+      let cursor = new Date(day);
       cursor.setHours(startHour, 0, 0, 0);
-
 
       const blockEnd = new Date(day);
       blockEnd.setHours(endHour, 0, 0, 0);
 
-      while (cursor.getTime() + durationMinutes * 60000 <= blockEnd.getTime()){
+      while (cursor.getTime() + durationMinutes * 60000 <= blockEnd.getTime()) {
         const start = new Date(cursor);
         const end = new Date(start.getTime() + durationMinutes * 60000);
 
@@ -146,13 +153,10 @@ export async function getAvailableSlots({
         if (busy.length === 0) {
           slots.push({
             iso: start.toISOString(),
-            label: new Date(start.getTime()).toLocaleString("pt-BR", {
+            label: start.toLocaleString("pt-BR", {
               timeZone: timezone,
-              hour: "2-digit",
-              minute: "2-digit",
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
+              dateStyle: "short",
+              timeStyle: "short",
             }),
           });
         }
@@ -164,6 +168,8 @@ export async function getAvailableSlots({
 
   return slots.slice(0, 6);
 }
+
+
 
 
 
