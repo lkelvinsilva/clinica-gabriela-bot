@@ -7,13 +7,6 @@ function nowInTimezone(timezone) {
   );
 }
 
-function toCalendarDateTime(date, timezone) {
-  return {
-    dateTime: date.toISOString().replace("Z", ""),
-    timeZone: timezone
-  };
-}
-
 function getAuth() {
   return new google.auth.JWT(
     process.env.GOOGLE_CLIENT_EMAIL,
@@ -84,7 +77,7 @@ export async function listUpcomingEvents(timeMinISO, timeMaxISO) {
 }
 
 export async function getAvailableSlots({
-  daysAhead = 5,
+  daysAhead = 21,
   durationMinutes = 60,
   period = "qualquer",
 }) {
@@ -103,29 +96,38 @@ export async function getAvailableSlots({
     day.setHours(0, 0, 0, 0);
 
     const businessBlocks = getBusinessHours(day);
-    if (!businessBlocks) continue; // domingo ou feriado
+    if (!businessBlocks) continue;
 
     for (const block of businessBlocks) {
       let startHour = block.start;
       let endHour = block.end;
 
-      // 🔹 filtro de período
+      // 🎯 filtro de período
       if (period === "manha") {
-        endHour = Math.min(endHour, 11);
+        startHour = Math.max(startHour, 9);
+        endHour = Math.min(endHour, 12);
       }
 
       if (period === "tarde") {
         startHour = Math.max(startHour, 13);
       }
 
-      for (let h = startHour; h <= endHour - durationMinutes / 60; h++) {
-        const start = new Date(day);
-        start.setHours(h, 0, 0, 0);
+      const stepMinutes = 60;
 
-        // ❌ não permitir horários passados
-        if (start < now) continue;
+      let cursor = new Date(day);
+      cursor.setHours(startHour, 0, 0, 0);
 
+      const blockEnd = new Date(day);
+      blockEnd.setHours(endHour, 0, 0, 0);
+
+      while (cursor.getTime() + durationMinutes * 60000 <= blockEnd.getTime()){
+        const start = new Date(cursor);
         const end = new Date(start.getTime() + durationMinutes * 60000);
+
+        if (start < now) {
+          cursor.setMinutes(cursor.getMinutes() + stepMinutes);
+          continue;
+        }
 
         const res = await calendar.freebusy.query({
           requestBody: {
@@ -148,12 +150,15 @@ export async function getAvailableSlots({
             }),
           });
         }
+
+        cursor.setMinutes(cursor.getMinutes() + stepMinutes);
       }
     }
   }
 
-  return slots;
+  return slots.slice(0, 6);
 }
+
 
 
 function isHoliday(date) {
