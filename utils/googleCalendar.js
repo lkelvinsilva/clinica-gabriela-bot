@@ -183,6 +183,10 @@ export async function getAvailableSlots({
             items: [{ id: calendarId }],
           },
         });
+        console.log("⛔ BUSY RETORNADO:", 
+        res.data.calendars?.[calendarId]?.busy
+      );
+
 
         const busy = res.data.calendars?.[calendarId]?.busy || [];
 
