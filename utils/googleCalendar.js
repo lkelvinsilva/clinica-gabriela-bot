@@ -157,6 +157,16 @@ export async function getAvailableSlots({
 
 
       while (cursor.getTime() + durationMinutes * 60000 <= blockEnd.getTime()) {
+
+      console.log("➡️ TESTANDO SLOT:", {
+        dataHoraLocal: cursor.toLocaleString("pt-BR", { timeZone: timezone }),
+        iso: cursor.toISOString(),
+        now: now.toLocaleString("pt-BR", { timeZone: timezone }),
+        calendarId,
+      });
+
+ 
+
         const start = new Date(cursor);
         const end = new Date(start.getTime() + durationMinutes * 60000);
 
