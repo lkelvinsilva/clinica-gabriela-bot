@@ -47,11 +47,34 @@ export async function createEvent({ summary, description, startISO, durationMinu
   const start = new Date(startISO);
   const end = new Date(start.getTime() + durationMinutes * 60000);
 
+const timeZone = process.env.TIMEZONE || "America/Fortaleza";
+
+// startISO já vem no horário LOCAL correto (ex: 2026-01-15T09:00)
+const startDate = new Date(startISO);
+
+// calcula o fim mantendo o horário local
+const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
+
+  // converte para string local SEM UTC
+  const startLocalISO = startDate
+    .toLocaleString("sv-SE", { timeZone })
+    .replace(" ", "T");
+
+  const endLocalISO = endDate
+    .toLocaleString("sv-SE", { timeZone })
+    .replace(" ", "T");
+
   const event = {
     summary,
     description,
-    start: { dateTime: start.toISOString(), timeZone: process.env.TIMEZONE || "America/Fortaleza" },
-    end: { dateTime: end.toISOString(), timeZone: process.env.TIMEZONE || "America/Fortaleza" },
+    start: {
+      dateTime: startLocalISO,
+      timeZone
+    },
+    end: {
+      dateTime: endLocalISO,
+      timeZone
+    },
     attendees
   };
 
@@ -141,8 +164,8 @@ export async function getAvailableSlots({
 
         const res = await calendar.freebusy.query({
           requestBody: {
-            timeMin: start.toISOString(),
-            timeMax: end.toISOString(),
+            timeMin: start,
+            timeMax: end,
             timeZone: timezone,
             items: [{ id: calendarId }],
           },
@@ -152,7 +175,7 @@ export async function getAvailableSlots({
 
         if (busy.length === 0) {
           slots.push({
-            iso: start.toISOString(),
+            iso: start.toLocaleString("sv-SE", { timeZone }).replace(" ", "T"),
             label: start.toLocaleString("pt-BR", {
               timeZone: timezone,
               dateStyle: "short",
@@ -168,10 +191,6 @@ export async function getAvailableSlots({
 
   return slots.slice(0, 6);
 }
-
-
-
-
 
 function isHoliday(date) {
   const holidays = [
