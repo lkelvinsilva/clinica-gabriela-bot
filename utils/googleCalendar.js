@@ -145,11 +145,16 @@ export async function getAvailableSlots({
 
       const stepMinutes = 60;
 
-      let cursor = new Date(day);
+      let cursor = new Date(
+        new Date(day).toLocaleString("en-US", { timeZone: timezone })
+      );
       cursor.setHours(startHour, 0, 0, 0);
 
-      const blockEnd = new Date(day);
+      const blockEnd = new Date(
+        new Date(day).toLocaleString("en-US", { timeZone: timezone })
+      );
       blockEnd.setHours(endHour, 0, 0, 0);
+
 
       while (cursor.getTime() + durationMinutes * 60000 <= blockEnd.getTime()) {
         const start = new Date(cursor);
