@@ -175,7 +175,7 @@ export async function getAvailableSlots({
 
         if (busy.length === 0) {
           slots.push({
-            iso: start.toLocaleString("sv-SE", { timeZone }).replace(" ", "T"),
+            iso: start.toLocaleString("sv-SE", { timeZone: timezone }).replace(" ", "T"),
             label: start.toLocaleString("pt-BR", {
               timeZone: timezone,
               dateStyle: "short",
