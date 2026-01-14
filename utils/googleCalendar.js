@@ -97,6 +97,7 @@ export async function listUpcomingEvents(timeMinISO, timeMaxISO) {
 }
 
 export async function getAvailableSlots({
+
   daysAhead = 21,
   durationMinutes = 60,
   period = "qualquer",
@@ -185,7 +186,6 @@ export async function getAvailableSlots({
       }
     }
   }
-
   return slots.slice(0, 6);
 }
 

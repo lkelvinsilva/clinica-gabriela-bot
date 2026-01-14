@@ -328,7 +328,10 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
 }
 
   if (state.step === "wait_period") {
-  const period = lower;
+  const period = ["manha", "tarde", "qualquer"].includes(lower)
+  ? lower
+  : "qualquer";
+
 
   const slots = await getAvailableSlots({
     period,
@@ -392,7 +395,7 @@ if (state.step === "confirm_slot") {
   }
 
   if (lower === "escolher_outro") {
-    state.step = "ask_period";
+    state.step = "wait_period";
     delete state.temp.selectedSlot;
     await setUserState(from, state);
 
