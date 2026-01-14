@@ -114,8 +114,11 @@ export async function getAvailableSlots({
 
       const stepMinutes = 60;
 
-      let cursor = new Date(day);
+      let cursor = new Date(
+        new Date(day).toLocaleString("en-US", { timeZone: timezone })
+      );
       cursor.setHours(startHour, 0, 0, 0);
+
 
       const blockEnd = new Date(day);
       blockEnd.setHours(endHour, 0, 0, 0);
@@ -143,10 +146,13 @@ export async function getAvailableSlots({
         if (busy.length === 0) {
           slots.push({
             iso: start.toISOString(),
-            label: start.toLocaleString("pt-BR", {
+            label: new Date(start.getTime()).toLocaleString("pt-BR", {
               timeZone: timezone,
-              dateStyle: "short",
-              timeStyle: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
             }),
           });
         }
