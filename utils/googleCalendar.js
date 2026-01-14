@@ -20,9 +20,6 @@ export async function isTimeSlotFree(startISO, durationMinutes = 60) {
   const auth = getAuth();
   const calendar = google.calendar({ version: "v3", auth });
 
-  const start = new Date(startISO);
-  const end = new Date(start.getTime() + durationMinutes * 60000);
-
   const res = await calendar.freebusy.query({
     requestBody: {
       timeMin: start,
@@ -164,8 +161,8 @@ export async function getAvailableSlots({
 
         const res = await calendar.freebusy.query({
           requestBody: {
-            timeMin: start,
-            timeMax: end,
+            timeMin: start.toISOString(),
+            timeMax: end.toISOString(),
             timeZone: timezone,
             items: [{ id: calendarId }],
           },
