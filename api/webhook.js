@@ -344,12 +344,15 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
     durationMinutes: 60,
   });
 
-  if (!slots || !slots.length) {
-    await sendMessage(from, "😕 No momento não encontrei horários disponíveis.");
-    state.step = "menu";
-    await setUserState(from, state);
-    return res.status(200).send("no_slots");
+   if (!slots || !slots.length) {
+    await sendButtons(from, "😕 Não encontrei horários nesse período. Deseja tentar outro?", [
+      { id: "manha", title: "Manhã" },
+      { id: "tarde", title: "Tarde" },
+      { id: "qualquer", title: "Qualquer horário" },
+    ]);
+    return res.status(200).send("no_slots_retry");
   }
+
 
   state.temp.slots = slots;
 
