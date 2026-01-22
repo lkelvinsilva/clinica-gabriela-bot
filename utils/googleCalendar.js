@@ -30,9 +30,9 @@ function getAuth() {
     null,
     process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
     [
-      "https://www.googleapis.com",
-      "https://www.googleapis.com.events",
-      "https://www.googleapis.com.freebusy"
+       "https://www.googleapis.com/auth/calendar", 
+      "https://www.googleapis.com/auth/calendar.events",
+      "https://www.googleapis.com" 
     ]
   );
 }
