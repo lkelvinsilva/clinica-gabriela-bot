@@ -94,7 +94,10 @@ export async function getAvailableSlots({
 
       while (cursor.getTime() + durationMinutes * 60000 <= blockEnd.getTime()) {
         // Verifica se o horário já passou (comparação em milissegundos)
-        if (cursor.getTime() <= now.getTime()) {
+        const isToday =
+          cursor.toDateString() === now.toDateString();
+        
+        if (isToday && cursor.getTime() <= now.getTime()) {
           cursor.setMinutes(cursor.getMinutes() + durationMinutes);
           continue;
         }
