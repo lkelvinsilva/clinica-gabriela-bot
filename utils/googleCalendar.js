@@ -208,3 +208,24 @@ export function isWithinBusinessHours(date) {
   if (day === 6) return hour >= 8 && hour < 12;
   return (hour >= 9 && hour < 12) || (hour >= 13 && hour < 18);
 }
+
+/* ===================== CHECK SINGLE SLOT ===================== */
+export async function isTimeSlotFree(startISO, durationMinutes = 60) {
+  const auth = getAuth();
+  const calendar = google.calendar({ version: "v3", auth });
+  const calendarId = process.env.GOOGLE_CALENDAR_ID;
+
+  const start = new Date(startISO);
+  const end = new Date(start.getTime() + durationMinutes * 60000);
+
+  const res = await calendar.freebusy.query({
+    requestBody: {
+      timeMin: formatToRFC3339(start),
+      timeMax: formatToRFC3339(end),
+      items: [{ id: calendarId }],
+    },
+  });
+
+  const busy = res.data.calendars?.[calendarId]?.busy || [];
+  return busy.length === 0;
+}
