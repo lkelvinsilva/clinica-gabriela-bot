@@ -101,14 +101,6 @@ export async function getAvailableSlots({
       blockEnd.setHours(block.end, 0, 0, 0);
 
       while (cursor.getTime() + durationMinutes * 60000 <= blockEnd.getTime()) {
-        const cursorLocal = new Date(
-          cursor.toLocaleString("en-US", { timeZone: TIMEZONE })
-        );
-        
-        if (cursorLocal <= now) {
-          cursor.setMinutes(cursor.getMinutes() + durationMinutes);
-          continue;
-        }
 
 
         const slotStart = new Date(cursor);
