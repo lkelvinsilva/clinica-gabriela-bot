@@ -38,12 +38,8 @@ function getAuth() {
 }
 
 // Converte Date para RFC3339 local (Ex: 2026-01-22T14:00:00-03:00)
-// Isso impede que o Google converta para UTC erroneamente
 function formatToRFC3339(date) {
   const pad = (n) => (n < 10 ? "0" + n : n);
-  
-  // Extraímos os componentes locais baseados no fuso de Fortaleza
-  // Isso é necessário porque na Vercel o date.getHours() retornaria UTC
   const s = date.toLocaleString("en-US", { timeZone: TIMEZONE, hour12: false });
   const parts = s.match(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/);
   
@@ -67,7 +63,7 @@ export async function getAvailableSlots({
   const calendar = google.calendar({ version: "v3", auth });
   const calendarId = process.env.GOOGLE_CALENDAR_ID;
 
-  const now = getNow(); // Função getNow() que corrigimos antes
+  const now = getNow();
   const slots = [];
 
   for (let d = 0; d < daysAhead; d++) {
@@ -75,17 +71,23 @@ export async function getAvailableSlots({
     currentDay.setDate(now.getDate() + d);
     currentDay.setHours(0, 0, 0, 0);
     
-    // Pega todos os blocos do dia (Manhã e Tarde)
     let blocks = getBusinessHours(currentDay);
     if (!blocks) continue;
 
-    // NOVO FILTRO: Mantém apenas os blocos que correspondem ao período escolhido
+    // --- LOG 1 --- Verificar o período solicitado e os blocos iniciais
+    console.log(`DEBUG: Processando dia ${currentDay.toDateString()} para o período: ${period}`);
+    console.log(`DEBUG: Blocos de horários iniciais: ${JSON.stringify(blocks)}`);
+
+    // FILTRO: Mantém apenas os blocos que correspondem ao período escolhido
     if (period === "manha") {
       blocks = blocks.filter(b => b.start < 12);
     } else if (period === "tarde") {
+      // Filtra blocos que começam na parte da tarde (13h+)
       blocks = blocks.filter(b => b.start >= 13);
     }
-    // Se 'qualquer', ambos os blocos são mantidos.
+    
+    // --- LOG 2 --- Verificar o resultado do filtro
+    console.log(`DEBUG: Blocos após o filtro de período: ${JSON.stringify(blocks)}`);
 
     for (const block of blocks) {
       let cursor = new Date(currentDay);
@@ -103,8 +105,10 @@ export async function getAvailableSlots({
         const slotStart = new Date(cursor);
         const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
 
-        // ... (resto do seu código de freebusy.query e push dos slots) ...
         try {
+           // --- LOG 3 --- Verificar o horário exato enviado para o Google
+           console.log(`DEBUG: Verificando slot timeMin: ${formatToRFC3339(slotStart)}`);
+
            const res = await calendar.freebusy.query({
              requestBody: {
                timeMin: formatToRFC3339(slotStart),
@@ -122,15 +126,16 @@ export async function getAvailableSlots({
              });
            }
          } catch (error) {
-           console.error("Erro na consulta de FreeBusy:", error);
+           console.error("Erro na consulta de FreeBusy:", error?.response?.data || error.message);
          }
-        // ...
         
         cursor.setMinutes(cursor.getMinutes() + durationMinutes);
       }
     }
   }
 
+  // --- LOG 4 --- Verificar o total de slots encontrados no final
+  console.log(`DEBUG: Total de slots encontrados: ${slots.length}`);
   return slots;
 }
 
@@ -140,7 +145,6 @@ export async function createEvent({ summary, description, startISO, durationMinu
   const auth = getAuth();
   const calendar = google.calendar({ version: "v3", auth });
 
-  // startISO já deve vir no formato local sem Z do webhook
   const startDate = new Date(startISO);
   const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
 
@@ -159,6 +163,29 @@ export async function createEvent({ summary, description, startISO, durationMinu
 
   return response.data;
 }
+
+/* ===================== CHECK SINGLE SLOT ===================== */
+// Função necessária para resolver o SyntaxError no webhook.js
+export async function isTimeSlotFree(startISO, durationMinutes = 60) {
+  const auth = getAuth();
+  const calendar = google.calendar({ version: "v3", auth });
+  const calendarId = process.env.GOOGLE_CALENDAR_ID;
+
+  const start = new Date(startISO);
+  const end = new Date(start.getTime() + durationMinutes * 60000);
+
+  const res = await calendar.freebusy.query({
+    requestBody: {
+      timeMin: formatToRFC3339(start),
+      timeMax: formatToRFC3339(end),
+      items: [{ id: calendarId }],
+    },
+  });
+
+  const busy = res.data.calendars?.[calendarId]?.busy || [];
+  return busy.length === 0;
+}
+
 
 /* ===================== REGRAS DE NEGÓCIO ===================== */
 function getBusinessHours(date) {
