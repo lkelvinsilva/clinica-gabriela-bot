@@ -61,13 +61,13 @@ function formatToRFC3339(date) {
 export async function getAvailableSlots({
   daysAhead = 21,
   durationMinutes = 60,
-  period = "qualquer",
+  period = "qualquer", // 'manha', 'tarde', 'qualquer'
 }) {
   const auth = getAuth();
   const calendar = google.calendar({ version: "v3", auth });
   const calendarId = process.env.GOOGLE_CALENDAR_ID;
 
-  const now = getNow();
+  const now = getNow(); // Função getNow() que corrigimos antes
   const slots = [];
 
   for (let d = 0; d < daysAhead; d++) {
@@ -75,29 +75,27 @@ export async function getAvailableSlots({
     currentDay.setDate(now.getDate() + d);
     currentDay.setHours(0, 0, 0, 0);
     
-    const blocks = getBusinessHours(currentDay);
+    // Pega todos os blocos do dia (Manhã e Tarde)
+    let blocks = getBusinessHours(currentDay);
     if (!blocks) continue;
 
+    // NOVO FILTRO: Mantém apenas os blocos que correspondem ao período escolhido
+    if (period === "manha") {
+      blocks = blocks.filter(b => b.start < 12);
+    } else if (period === "tarde") {
+      blocks = blocks.filter(b => b.start >= 13);
+    }
+    // Se 'qualquer', ambos os blocos são mantidos.
+
     for (const block of blocks) {
-      let startHour = block.start;
-      let endHour = block.end;
-
-      if (period === "manha") { endHour = Math.min(endHour, 12); }
-      if (period === "tarde") { startHour = Math.max(startHour, 13); }
-
-      // Ajusta o cursor para o fuso local de Fortaleza
       let cursor = new Date(currentDay);
-      cursor.setHours(startHour, 0, 0, 0);
+      cursor.setHours(block.start, 0, 0, 0);
 
       const blockEnd = new Date(currentDay);
-      blockEnd.setHours(endHour, 0, 0, 0);
+      blockEnd.setHours(block.end, 0, 0, 0);
 
       while (cursor.getTime() + durationMinutes * 60000 <= blockEnd.getTime()) {
-        // Verifica se o horário já passou (comparação em milissegundos)
-        const isToday =
-          cursor.toDateString() === now.toDateString();
-        
-        if (isToday && cursor.getTime() <= now.getTime()) {
+        if (cursor.getTime() <= now.getTime()) {
           cursor.setMinutes(cursor.getMinutes() + durationMinutes);
           continue;
         }
@@ -105,40 +103,37 @@ export async function getAvailableSlots({
         const slotStart = new Date(cursor);
         const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
 
+        // ... (resto do seu código de freebusy.query e push dos slots) ...
         try {
-          const res = await calendar.freebusy.query({
-            requestBody: {
-              timeMin: formatToRFC3339(slotStart),
-              timeMax: formatToRFC3339(slotEnd),
-              items: [{ id: calendarId }],
-            },
-          });
+           const res = await calendar.freebusy.query({
+             requestBody: {
+               timeMin: formatToRFC3339(slotStart),
+               timeMax: formatToRFC3339(slotEnd),
+               items: [{ id: calendarId }],
+             },
+           });
 
-          const busy = res.data.calendars?.[calendarId]?.busy || [];
+           const busy = res.data.calendars?.[calendarId]?.busy || [];
 
-          if (busy.length === 0) {
-            slots.push({
-              iso: formatToRFC3339(slotStart),
-              label: slotStart.toLocaleString("pt-BR", {
-                timeZone: TIMEZONE,
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              }),
-            });
-          }
-        } catch (error) {
-          console.error("Erro na consulta de FreeBusy:", error);
-        }
-
+           if (busy.length === 0) {
+             slots.push({
+               iso: formatToRFC3339(slotStart),
+               label: slotStart.toLocaleString("pt-BR", { timeZone: TIMEZONE, dateStyle: "short", timeStyle: "short" }),
+             });
+           }
+         } catch (error) {
+           console.error("Erro na consulta de FreeBusy:", error);
+         }
+        // ...
+        
         cursor.setMinutes(cursor.getMinutes() + durationMinutes);
       }
     }
   }
+
   return slots;
 }
+
 
 /* ===================== CREATE EVENT ===================== */
 export async function createEvent({ summary, description, startISO, durationMinutes = 60, attendees = [] }) {
