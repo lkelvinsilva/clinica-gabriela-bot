@@ -64,6 +64,10 @@ export async function getAvailableSlots({
   const calendarId = process.env.GOOGLE_CALENDAR_ID;
 
   const now = getNow();
+    // Força a busca a começar do início do próximo dia útil
+  now.setHours(0, 0, 0, 0);
+  now.setDate(now.getDate() + 1);
+
   const slots = [];
 
   for (let d = 0; d < daysAhead; d++) {
