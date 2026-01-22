@@ -1,27 +1,24 @@
 import { google } from "googleapis";
-function createDateInTimezone(date, hour, minute = 0) {
-  const [y, m, d] = [
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate()
-  ];
-
-  // Fortaleza = UTC-3
-  return new Date(Date.UTC(y, m, d, hour + 3, minute, 0));
-}
 
 /* ===================== CONFIGURAÇÕES ===================== */
 const TIMEZONE = process.env.TIMEZONE || "America/Fortaleza";
 
 /* ===================== HELPERS ===================== */
 
-// Garante que o "agora" seja sempre baseado no fuso correto
+// Cria data em UTC a partir de horário local de Fortaleza
+function createDateUTC(date, hour, minute = 0) {
+  return new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    hour + 3, // Fortaleza (UTC-3) → UTC
+    minute,
+    0
+  ));
+}
+
 function getNow() {
-  const now = new Date();
-  const local = new Date(
-    now.toLocaleString("en-US", { timeZone: TIMEZONE })
-  );
-  return local;
+  return new Date(); // UTC puro (Vercel-safe)
 }
 
 function getAuth() {
@@ -47,20 +44,18 @@ export async function getAvailableSlots({
   const calendarId = process.env.GOOGLE_CALENDAR_ID;
 
   const now = getNow();
-  now.setHours(0, 0, 0, 0);
-  now.setDate(now.getDate() + 1); // começa no próximo dia
+  now.setUTCHours(0, 0, 0, 0);
+  now.setUTCDate(now.getUTCDate() + 1); // começa no próximo dia
 
   const slots = [];
 
   for (let d = 0; d < daysAhead; d++) {
     const currentDay = new Date(now);
-    currentDay.setDate(now.getDate() + d);
-    currentDay.setHours(0, 0, 0, 0);
+    currentDay.setUTCDate(now.getUTCDate() + d);
 
     let blocks = getBusinessHours(currentDay);
     if (!blocks) continue;
 
-    // filtro manhã / tarde
     if (period === "manha") {
       blocks = blocks.filter(b => b.start < 12);
     } else if (period === "tarde") {
@@ -68,51 +63,35 @@ export async function getAvailableSlots({
     }
 
     for (const block of blocks) {
-      let cursor = new Date(currentDay);
-      let cursor = createDateInTimezone(currentDay, block.start);
-      const blockEnd = createDateInTimezone(currentDay, block.end);
-;
+      let cursor = createDateUTC(currentDay, block.start);
+      const blockEnd = createDateUTC(currentDay, block.end);
 
       while (cursor.getTime() + durationMinutes * 60000 <= blockEnd.getTime()) {
         const slotStart = new Date(cursor);
         const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
 
-        try {
-          console.log("DEBUG freebusy:", {
+        const res = await calendar.freebusy.query({
+          requestBody: {
             timeMin: slotStart.toISOString(),
             timeMax: slotEnd.toISOString(),
-          });
+            items: [{ id: calendarId }],
+          },
+        });
 
-          const res = await calendar.freebusy.query({
-            requestBody: {
-              timeMin: slotStart.toISOString(),
-              timeMax: slotEnd.toISOString(),
-              items: [{ id: calendarId }],
-            },
-          });
+        const busy = res.data.calendars?.[calendarId]?.busy || [];
 
-          const busy = res.data.calendars?.[calendarId]?.busy || [];
-
-          if (busy.length === 0) {
-            slots.push({
-              iso: slotStart.toISOString(),
-              label: new Date(
-              slotStart.getTime() - 3 * 60 * 60 * 1000
-            ).toLocaleString("pt-BR", {
+        if (busy.length === 0) {
+          slots.push({
+            iso: slotStart.toISOString(),
+            label: slotStart.toLocaleString("pt-BR", {
+              timeZone: TIMEZONE,
               dateStyle: "short",
               timeStyle: "short",
             }),
-
-            });
-          }
-        } catch (error) {
-          console.error(
-            "Erro FreeBusy:",
-            error?.response?.data || error.message
-          );
+          });
         }
 
-        cursor.setMinutes(cursor.getMinutes() + durationMinutes);
+        cursor = new Date(cursor.getTime() + durationMinutes * 60000);
       }
     }
   }
@@ -138,14 +117,8 @@ export async function createEvent({
   const event = {
     summary,
     description,
-    start: {
-      dateTime: startDate.toISOString(),
-      timeZone: TIMEZONE,
-    },
-    end: {
-      dateTime: endDate.toISOString(),
-      timeZone: TIMEZONE,
-    },
+    start: { dateTime: startDate.toISOString() },
+    end: { dateTime: endDate.toISOString() },
     attendees,
   };
 
@@ -180,7 +153,7 @@ export async function isTimeSlotFree(startISO, durationMinutes = 60) {
 
 /* ===================== REGRAS DE NEGÓCIO ===================== */
 function getBusinessHours(date) {
-  const day = date.getDay();
+  const day = date.getUTCDay();
   if (day === 0 || isHoliday(date)) return null;
   if (day === 6) return [{ start: 8, end: 12 }];
   return [
@@ -196,15 +169,15 @@ function isHoliday(date) {
     "11-15", "12-25",
   ];
   const mmdd =
-    String(date.getMonth() + 1).padStart(2, "0") +
+    String(date.getUTCMonth() + 1).padStart(2, "0") +
     "-" +
-    String(date.getDate()).padStart(2, "0");
+    String(date.getUTCDate()).padStart(2, "0");
   return holidays.includes(mmdd);
 }
 
 export function isWithinBusinessHours(date) {
-  const day = date.getDay();
-  const hour = date.getHours();
+  const day = date.getUTCDay();
+  const hour = date.getUTCHours() - 3; // converte p/ Fortaleza
   if (day === 0 || isHoliday(date)) return false;
   if (day === 6) return hour >= 8 && hour < 12;
   return (hour >= 9 && hour < 12) || (hour >= 13 && hour < 18);
