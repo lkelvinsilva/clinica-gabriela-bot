@@ -1,4 +1,14 @@
 import { google } from "googleapis";
+function createDateInTimezone(date, hour, minute = 0) {
+  const [y, m, d] = [
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate()
+  ];
+
+  // Fortaleza = UTC-3
+  return new Date(Date.UTC(y, m, d, hour + 3, minute, 0));
+}
 
 /* ===================== CONFIGURAÇÕES ===================== */
 const TIMEZONE = process.env.TIMEZONE || "America/Fortaleza";
@@ -59,10 +69,9 @@ export async function getAvailableSlots({
 
     for (const block of blocks) {
       let cursor = new Date(currentDay);
-      cursor.setHours(block.start, 0, 0, 0);
-
-      const blockEnd = new Date(currentDay);
-      blockEnd.setHours(block.end, 0, 0, 0);
+      let cursor = createDateInTimezone(currentDay, block.start);
+      const blockEnd = createDateInTimezone(currentDay, block.end);
+;
 
       while (cursor.getTime() + durationMinutes * 60000 <= blockEnd.getTime()) {
         const slotStart = new Date(cursor);
