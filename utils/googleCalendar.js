@@ -35,7 +35,7 @@ function getAuth() {
 
 /* ===================== AVAILABLE SLOTS ===================== */
 export async function getAvailableSlots({
-  daysAhead = 21,
+  daysAhead = 45,
   durationMinutes = 60,
   period = "qualquer", // 'manha', 'tarde', 'qualquer'
 }) {
