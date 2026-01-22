@@ -1,89 +1,32 @@
 import { google } from "googleapis";
 
-/* ===================== TIMEZONE ===================== */
+/* ===================== CONFIGURAÇÕES ===================== */
 const TIMEZONE = process.env.TIMEZONE || "America/Fortaleza";
-const OFFSET = "-03:00";
+// Em 2026, garantimos que o offset seja tratado dinamicamente ou mantido fixo como string
+const OFFSET = "-03:00"; 
 
 /* ===================== HELPERS ===================== */
-function nowInTimezone(timezone) {
-  return new Date(
-    new Date().toLocaleString("en-US", { timeZone: timezone })
-  );
-}
-
 function getAuth() {
   return new google.auth.JWT(
     process.env.GOOGLE_CLIENT_EMAIL,
     null,
     process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-    [
-      "https://www.googleapis.com/auth/calendar",
-      "https://www.googleapis.com/auth/calendar.events",
-    ]
+    ["https://www.googleapis.com"]
   );
 }
 
-/* ===================== FREE SLOT ===================== */
-export async function isTimeSlotFree(startISO, durationMinutes = 60) {
-  const auth = getAuth();
-  const calendar = google.calendar({ version: "v3", auth });
-
-  const start = new Date(startISO);
-  const end = new Date(start.getTime() + durationMinutes * 60000);
-
-  const res = await calendar.freebusy.query({
-    requestBody: {
-      timeMin: start.toISOString(),
-      timeMax: end.toISOString(),
-      timeZone: TIMEZONE,
-      items: [{ id: process.env.GOOGLE_CALENDAR_ID }],
-    },
-  });
-
-  const busy =
-    res.data.calendars?.[process.env.GOOGLE_CALENDAR_ID]?.busy || [];
-
-  return busy.length === 0;
-}
-
-/* ===================== CREATE EVENT ===================== */
-export async function createEvent({
-  summary,
-  description,
-  startISO,
-  durationMinutes = 60,
-  attendees = [],
-}) {
-  const auth = getAuth();
-  const calendar = google.calendar({ version: "v3", auth });
-
-  const startDate = new Date(startISO);
-  const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
-
-  const startLocalISO =
-    startDate
-      .toLocaleString("sv-SE", { timeZone: TIMEZONE })
-      .replace(" ", "T") + OFFSET;
-
-  const endLocalISO =
-    endDate
-      .toLocaleString("sv-SE", { timeZone: TIMEZONE })
-      .replace(" ", "T") + OFFSET;
-
-  const event = {
-    summary,
-    description,
-    start: { dateTime: startLocalISO, timeZone: TIMEZONE },
-    end: { dateTime: endLocalISO, timeZone: TIMEZONE },
-    attendees,
-  };
-
-  const response = await calendar.events.insert({
-    calendarId: process.env.GOOGLE_CALENDAR_ID,
-    resource: event,
-  });
-
-  return response.data;
+// Converte um objeto Date para o formato que o Google entende respeitando o fuso local
+function formatToRFC3339(date) {
+  const pad = (n) => (n < 10 ? "0" + n : n);
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hour = pad(date.getHours());
+  const minute = pad(date.getMinutes());
+  const second = pad(date.getSeconds());
+  
+  // Retorna YYYY-MM-DDTHH:mm:ss-03:00
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}${OFFSET}`;
 }
 
 /* ===================== AVAILABLE SLOTS ===================== */
@@ -96,125 +39,104 @@ export async function getAvailableSlots({
   const calendar = google.calendar({ version: "v3", auth });
   const calendarId = process.env.GOOGLE_CALENDAR_ID;
 
-  const now = nowInTimezone(TIMEZONE);
+  // Data atual no fuso configurado
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: TIMEZONE }));
   const slots = [];
 
   for (let d = 0; d < daysAhead; d++) {
-    const day = new Date(now);
-    day.setDate(now.getDate() + d);
-    day.setHours(0, 0, 0, 0);
-
-    const blocks = getBusinessHours(day);
+    const currentDay = new Date(now);
+    currentDay.setDate(now.getDate() + d);
+    
+    const blocks = getBusinessHours(currentDay);
     if (!blocks) continue;
 
     for (const block of blocks) {
       let startHour = block.start;
       let endHour = block.end;
 
-      if (period === "manha") {
-        startHour = 9;
-        endHour = 12;
-      }
+      if (period === "manha") { endHour = Math.min(endHour, 12); }
+      if (period === "tarde") { startHour = Math.max(startHour, 13); }
 
-      if (period === "tarde") {
-        startHour = Math.max(startHour, 13);
-      }
-
-      let cursor = new Date(
-        day.toLocaleString("en-US", { timeZone: TIMEZONE })
-      );
+      let cursor = new Date(currentDay);
       cursor.setHours(startHour, 0, 0, 0);
 
-      const blockEnd = new Date(
-        day.toLocaleString("en-US", { timeZone: TIMEZONE })
-      );
+      const blockEnd = new Date(currentDay);
       blockEnd.setHours(endHour, 0, 0, 0);
 
       while (cursor.getTime() + durationMinutes * 60000 <= blockEnd.getTime()) {
-        if (cursor < now) {
-          cursor.setMinutes(cursor.getMinutes() + 60);
+        // Ignora horários que já passaram hoje
+        if (cursor <= now) {
+          cursor.setMinutes(cursor.getMinutes() + durationMinutes);
           continue;
         }
 
-        const start = new Date(cursor);
-        const end = new Date(start.getTime() + durationMinutes * 60000);
+        const slotStart = new Date(cursor);
+        const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
 
+        // CORREÇÃO CRÍTICA: Enviar o tempo formatado com OFFSET, não toISOString()
         const res = await calendar.freebusy.query({
           requestBody: {
-            timeMin: start.toISOString(),
-            timeMax: end.toISOString(),
+            timeMin: formatToRFC3339(slotStart),
+            timeMax: formatToRFC3339(slotEnd),
             timeZone: TIMEZONE,
             items: [{ id: calendarId }],
           },
         });
 
-        const busy =
-          res.data.calendars?.[calendarId]?.busy || [];
+        const busy = res.data.calendars?.[calendarId]?.busy || [];
 
         if (busy.length === 0) {
-          const localISO =
-            start
-              .toLocaleString("sv-SE", { timeZone: TIMEZONE })
-              .replace(" ", "T") + OFFSET;
-
           slots.push({
-            iso: localISO,
-            label: start.toLocaleString("pt-BR", {
+            iso: formatToRFC3339(slotStart),
+            label: slotStart.toLocaleString("pt-BR", {
               timeZone: TIMEZONE,
               dateStyle: "short",
               timeStyle: "short",
             }),
           });
         }
-
-        cursor.setMinutes(cursor.getMinutes() + 60);
+        cursor.setMinutes(cursor.getMinutes() + durationMinutes);
       }
     }
   }
-
   return slots;
 }
 
-/* ===================== BUSINESS RULES ===================== */
-function isHoliday(date) {
-  const holidays = [
-    "01-01",
-    "04-21",
-    "05-01",
-    "09-07",
-    "10-12",
-    "11-02",
-    "11-15",
-    "12-25",
-  ];
+/* ===================== CREATE EVENT ===================== */
+export async function createEvent({ summary, description, startISO, durationMinutes = 60, attendees = [] }) {
+  const auth = getAuth();
+  const calendar = google.calendar({ version: "v3", auth });
 
-  const mmdd =
-    String(date.getMonth() + 1).padStart(2, "0") +
-    "-" +
-    String(date.getDate()).padStart(2, "0");
+  const startDate = new Date(startISO);
+  const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
 
-  return holidays.includes(mmdd);
+  const event = {
+    summary,
+    description,
+    start: { dateTime: formatToRFC3339(startDate), timeZone: TIMEZONE },
+    end: { dateTime: formatToRFC3339(endDate), timeZone: TIMEZONE },
+    attendees,
+  };
+
+  const response = await calendar.events.insert({
+    calendarId: process.env.GOOGLE_CALENDAR_ID,
+    resource: event,
+  });
+
+  return response.data;
 }
 
+/* ===================== REGRAS DE NEGÓCIO ===================== */
 function getBusinessHours(date) {
   const day = date.getDay();
-
+  // 0 = Domingo, 6 = Sábado
   if (day === 0 || isHoliday(date)) return null;
-
   if (day === 6) return [{ start: 8, end: 12 }];
-
-  return [
-    { start: 9, end: 12 },
-    { start: 13, end: 18 },
-  ];
+  return [{ start: 9, end: 12 }, { start: 13, end: 18 }];
 }
 
-export function isWithinBusinessHours(date) {
-  const day = date.getDay();
-  const hour = date.getHours();
-
-  if (day === 0 || isHoliday(date)) return false;
-  if (day === 6) return hour >= 8 && hour < 12;
-
-  return (hour >= 9 && hour < 12) || (hour >= 13 && hour < 18);
+function isHoliday(date) {
+  const holidays = ["01-01", "04-21", "05-01", "09-07", "10-12", "11-02", "11-15", "12-25"];
+  const mmdd = String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+  return holidays.includes(mmdd);
 }

@@ -7,11 +7,17 @@ import { notifyAdminNewAppointment,sendConfirmationTemplate } from "../utils/wha
 
 // ---------------------- PARSE DE DATA ----------------------
 function parseDateTime(text) {
+  // Regex para pegar DD/MM/YYYY HH:mm
   const m = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(?:às\s*)?(\d{1,2}):(\d{2})/i);
   if (!m) return null;
+  
   const [, d, mo, y, hh, mm] = m;
-  return new Date(`${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}T${hh.padStart(2, "0")}:${mm}:00-03:00`).toISOString();
+  
+  // Criamos a string no formato ISO local SEM o "Z" no final
+  // O seu arquivo googleCalendar.js (que corrigimos antes) cuidará do OFFSET
+  return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}T${hh.padStart(2, "0")}:${mm}:00`;
 }
+
 
 // ---------------------- ENVIO DE MENSAGEM SIMPLES ----------------------
 async function sendMessage(to, text) {
