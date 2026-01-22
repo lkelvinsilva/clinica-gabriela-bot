@@ -1,9 +1,13 @@
 import { google } from "googleapis";
 
+/* ===================== TIMEZONE ===================== */
+const TIMEZONE = process.env.TIMEZONE || "America/Fortaleza";
+const OFFSET = "-03:00";
+
+/* ===================== HELPERS ===================== */
 function nowInTimezone(timezone) {
-  const now = new Date();
   return new Date(
-    now.toLocaleString("en-US", { timeZone: timezone })
+    new Date().toLocaleString("en-US", { timeZone: timezone })
   );
 }
 
@@ -12,22 +16,28 @@ function getAuth() {
     process.env.GOOGLE_CLIENT_EMAIL,
     null,
     process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-    ["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/calendar.events"]
+    [
+      "https://www.googleapis.com/auth/calendar",
+      "https://www.googleapis.com/auth/calendar.events",
+    ]
   );
 }
 
+/* ===================== FREE SLOT ===================== */
 export async function isTimeSlotFree(startISO, durationMinutes = 60) {
   const auth = getAuth();
   const calendar = google.calendar({ version: "v3", auth });
 
+  const start = new Date(startISO);
+  const end = new Date(start.getTime() + durationMinutes * 60000);
+
   const res = await calendar.freebusy.query({
     requestBody: {
-      timeMin: start,
-      timeMax: end,
-
-      timeZone: process.env.TIMEZONE || "America/Fortaleza",
-      items: [{ id: process.env.GOOGLE_CALENDAR_ID }]
-    }
+      timeMin: start.toISOString(),
+      timeMax: end.toISOString(),
+      timeZone: TIMEZONE,
+      items: [{ id: process.env.GOOGLE_CALENDAR_ID }],
+    },
   });
 
   const busy =
@@ -36,235 +46,175 @@ export async function isTimeSlotFree(startISO, durationMinutes = 60) {
   return busy.length === 0;
 }
 
-
-export async function createEvent({ summary, description, startISO, durationMinutes = 60, attendees = [] }) {
+/* ===================== CREATE EVENT ===================== */
+export async function createEvent({
+  summary,
+  description,
+  startISO,
+  durationMinutes = 60,
+  attendees = [],
+}) {
   const auth = getAuth();
   const calendar = google.calendar({ version: "v3", auth });
 
-  const start = new Date(startISO);
-  const end = new Date(start.getTime() + durationMinutes * 60000);
+  const startDate = new Date(startISO);
+  const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
 
-const timeZone = process.env.TIMEZONE || "America/Fortaleza";
+  const startLocalISO =
+    startDate
+      .toLocaleString("sv-SE", { timeZone: TIMEZONE })
+      .replace(" ", "T") + OFFSET;
 
-// startISO já vem no horário LOCAL correto (ex: 2026-01-15T09:00)
-const startDate = new Date(startISO);
-
-// calcula o fim mantendo o horário local
-const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
-
-  // converte para string local SEM UTC
-  const startLocalISO = startDate
-    .toLocaleString("sv-SE", { timeZone })
-    .replace(" ", "T");
-
-  const endLocalISO = endDate
-    .toLocaleString("sv-SE", { timeZone })
-    .replace(" ", "T");
+  const endLocalISO =
+    endDate
+      .toLocaleString("sv-SE", { timeZone: TIMEZONE })
+      .replace(" ", "T") + OFFSET;
 
   const event = {
     summary,
     description,
-    start: {
-      dateTime: startLocalISO,
-      timeZone
-    },
-    end: {
-      dateTime: endLocalISO,
-      timeZone
-    },
-    attendees
+    start: { dateTime: startLocalISO, timeZone: TIMEZONE },
+    end: { dateTime: endLocalISO, timeZone: TIMEZONE },
+    attendees,
   };
 
   const response = await calendar.events.insert({
     calendarId: process.env.GOOGLE_CALENDAR_ID,
-    resource: event
+    resource: event,
   });
 
   return response.data;
 }
 
-export async function listUpcomingEvents(timeMinISO, timeMaxISO) {
-  const auth = getAuth();
-  const calendar = google.calendar({ version: "v3", auth });
-  const res = await calendar.events.list({
-    calendarId: process.env.GOOGLE_CALENDAR_ID,
-    timeMin: timeMinISO,
-    timeMax: timeMaxISO,
-    singleEvents: true,
-    orderBy: "startTime"
-  });
-  return res.data.items || [];
-}
-
+/* ===================== AVAILABLE SLOTS ===================== */
 export async function getAvailableSlots({
-
   daysAhead = 21,
   durationMinutes = 60,
   period = "qualquer",
 }) {
   const auth = getAuth();
   const calendar = google.calendar({ version: "v3", auth });
-
-  const timezone = process.env.TIMEZONE || "America/Fortaleza";
   const calendarId = process.env.GOOGLE_CALENDAR_ID;
 
-  const now = nowInTimezone(timezone);
+  const now = nowInTimezone(TIMEZONE);
   const slots = [];
 
   for (let d = 0; d < daysAhead; d++) {
     const day = new Date(now);
     day.setDate(now.getDate() + d);
-
-    // 🔑 se hoje já passou da manhã, pula manhã
-    if (
-      d === 0 &&
-      period === "manha" &&
-      now.getHours() >= 12
-    ) {
-      continue;
-    }
-
     day.setHours(0, 0, 0, 0);
 
-    const businessBlocks = getBusinessHours(day);
-    if (!businessBlocks) continue;
+    const blocks = getBusinessHours(day);
+    if (!blocks) continue;
 
-    for (const block of businessBlocks) {
+    for (const block of blocks) {
       let startHour = block.start;
       let endHour = block.end;
 
-      // 🎯 filtro de período
       if (period === "manha") {
-        startHour = Math.max(startHour, 9);
-        endHour = Math.min(endHour, 12);
+        startHour = 9;
+        endHour = 12;
       }
 
       if (period === "tarde") {
         startHour = Math.max(startHour, 13);
       }
 
-      const stepMinutes = 60;
-
       let cursor = new Date(
-        new Date(day).toLocaleString("en-US", { timeZone: timezone })
+        day.toLocaleString("en-US", { timeZone: TIMEZONE })
       );
       cursor.setHours(startHour, 0, 0, 0);
 
       const blockEnd = new Date(
-        new Date(day).toLocaleString("en-US", { timeZone: timezone })
+        day.toLocaleString("en-US", { timeZone: TIMEZONE })
       );
       blockEnd.setHours(endHour, 0, 0, 0);
 
-
       while (cursor.getTime() + durationMinutes * 60000 <= blockEnd.getTime()) {
-
-      console.log("➡️ TESTANDO SLOT:", {
-        dataHoraLocal: cursor.toLocaleString("pt-BR", { timeZone: timezone }),
-        iso: cursor.toISOString(),
-        now: now.toLocaleString("pt-BR", { timeZone: timezone }),
-        calendarId,
-      });
-
- 
+        if (cursor < now) {
+          cursor.setMinutes(cursor.getMinutes() + 60);
+          continue;
+        }
 
         const start = new Date(cursor);
         const end = new Date(start.getTime() + durationMinutes * 60000);
-
-        if (start < now) {
-          cursor.setMinutes(cursor.getMinutes() + stepMinutes);
-          continue;
-        }
 
         const res = await calendar.freebusy.query({
           requestBody: {
             timeMin: start.toISOString(),
             timeMax: end.toISOString(),
-            timeZone: timezone,
+            timeZone: TIMEZONE,
             items: [{ id: calendarId }],
           },
         });
-        console.log("⛔ BUSY RETORNADO:", 
-        res.data.calendars?.[calendarId]?.busy
-      );
 
-
-        const busy = res.data.calendars?.[calendarId]?.busy || [];
+        const busy =
+          res.data.calendars?.[calendarId]?.busy || [];
 
         if (busy.length === 0) {
+          const localISO =
+            start
+              .toLocaleString("sv-SE", { timeZone: TIMEZONE })
+              .replace(" ", "T") + OFFSET;
+
           slots.push({
-            iso: start.toLocaleString("sv-SE", { timeZone: timezone }).replace(" ", "T"),
+            iso: localISO,
             label: start.toLocaleString("pt-BR", {
-              timeZone: timezone,
+              timeZone: TIMEZONE,
               dateStyle: "short",
               timeStyle: "short",
             }),
           });
         }
 
-        cursor.setMinutes(cursor.getMinutes() + stepMinutes);
+        cursor.setMinutes(cursor.getMinutes() + 60);
       }
     }
   }
+
   return slots;
 }
 
+/* ===================== BUSINESS RULES ===================== */
 function isHoliday(date) {
   const holidays = [
-    "01-01", // Confraternização Universal
-    "04-21", // Tiradentes
-    "05-01", // Dia do Trabalhador
-    "09-07", // Independência
-    "10-12", // Nossa Senhora Aparecida
-    "11-02", // Finados
-    "11-15", // Proclamação da República
-    "12-25", // Natal
+    "01-01",
+    "04-21",
+    "05-01",
+    "09-07",
+    "10-12",
+    "11-02",
+    "11-15",
+    "12-25",
   ];
 
-  const mmdd = String(date.getMonth() + 1).padStart(2, "0") +
-               "-" +
-               String(date.getDate()).padStart(2, "0");
+  const mmdd =
+    String(date.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(date.getDate()).padStart(2, "0");
 
   return holidays.includes(mmdd);
 }
+
 function getBusinessHours(date) {
-  const day = date.getDay(); // 0=Domingo, 6=Sábado
+  const day = date.getDay();
 
-  // ❌ Domingo
-  if (day === 0) return null;
+  if (day === 0 || isHoliday(date)) return null;
 
-  // ❌ Feriado
-  if (isHoliday(date)) return null;
+  if (day === 6) return [{ start: 8, end: 12 }];
 
-  // 🟢 Sábado: 08–12 (sem almoço)
-  if (day === 6) {
-    return [{ start: 8, end: 12 }];
-  }
-
-  // 🟢 Seg–Sex: 09–12 e 13–18
   return [
     { start: 9, end: 12 },
     { start: 13, end: 18 },
   ];
 }
+
 export function isWithinBusinessHours(date) {
-  const day = date.getDay(); // 0 = domingo
+  const day = date.getDay();
   const hour = date.getHours();
 
-  // ❌ Domingo
-  if (day === 0) return false;
+  if (day === 0 || isHoliday(date)) return false;
+  if (day === 6) return hour >= 8 && hour < 12;
 
-  // ❌ Feriado
-  if (isHoliday(date)) return false;
-
-  // 🟢 Sábado: 08–12
-  if (day === 6) {
-    return hour >= 8 && hour < 12;
-  }
-
-  // 🟢 Seg–Sex: 09–12 ou 13–18
-  const morning = hour >= 9 && hour < 12;
-  const afternoon = hour >= 13 && hour < 18;
-
-  return morning || afternoon;
+  return (hour >= 9 && hour < 12) || (hour >= 13 && hour < 18);
 }
-
