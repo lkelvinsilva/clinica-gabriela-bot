@@ -87,11 +87,13 @@ export async function getAvailableSlots({
           if (busy.length === 0) {
             slots.push({
               iso: slotStart.toISOString(),
-              label: slotStart.toLocaleString("pt-BR", {
-                timeZone: TIMEZONE,
-                dateStyle: "short",
-                timeStyle: "short",
-              }),
+              label: new Date(
+              slotStart.getTime() - 3 * 60 * 60 * 1000
+            ).toLocaleString("pt-BR", {
+              dateStyle: "short",
+              timeStyle: "short",
+            }),
+
             });
           }
         } catch (error) {
