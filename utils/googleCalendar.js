@@ -8,7 +8,20 @@ const OFFSET = "-03:00";
 
 // Função crucial para Vercel: Garante que o "agora" seja sempre Fortaleza
 function getNow() {
-  return new Date(new Date().toLocaleString("en-US", { timeZone: TIMEZONE }));
+  const now = new Date();
+  const parts = now.toLocaleString("en-US", {
+    timeZone: TIMEZONE,
+    hour12: false,
+  }).match(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/);
+
+  return new Date(
+    parts[3],            // year
+    parts[1] - 1,        // month
+    parts[2],            // day
+    parts[4],            // hour
+    parts[5],            // minute
+    parts[6]             // second
+  );
 }
 
 function getAuth() {
