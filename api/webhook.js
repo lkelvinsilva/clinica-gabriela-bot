@@ -210,8 +210,8 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
         await sendMessage(
           from,
           `🦷 *Serviços Odontológicos*\n\n` +
-            `1️⃣ Restauração em Resina\n` +
-            `2️⃣ Limpeza Dental\n` +
+            `1️⃣ Facetas ou Estratificação\n` +
+            `2️⃣ Limpeza Dental/Manutenção\n` +
             `3️⃣ Extração de Siso\n` +
             `4️⃣ Clareamento Dental\n` +
             `5️⃣ Outro serviço\n\n` +
@@ -293,8 +293,8 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
       }
 
       const procedimentosOdonto = {
-        "1": "Restauração em Resina",
-        "2": "Limpeza Dental",
+        "1": "Facetas ou Estratificação",
+        "2": "Limpeza Dental/Manutenção",
         "3": "Extração de Siso",
         "4": "Clareamento Dental",
         "5": "Outro serviço",
