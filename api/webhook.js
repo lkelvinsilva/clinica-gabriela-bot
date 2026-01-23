@@ -1,6 +1,6 @@
 import axios from "axios";
 import { getUserState, setUserState, isDuplicateMessage } from "../utils/state.js";
-import { createEvent, getAvailableSlots } from "../utils/googleCalendar.js";
+import {isTimeSlotFree, createEvent, getAvailableSlots } from "../utils/googleCalendar.js";
 import { isWithinBusinessHours } from "../utils/googleCalendar.js";
 import { appendRow } from "../utils/googleSheets.js";
 import { notifyAdminNewAppointment,sendConfirmationTemplate } from "../utils/whatsapp.js";
@@ -210,8 +210,8 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
         await sendMessage(
           from,
           `🦷 *Serviços Odontológicos*\n\n` +
-            `1️⃣ Restauração em Resina\n` +
-            `2️⃣ Limpeza Dental\n` +
+            `1️⃣ Facetas Convencionais\n` +
+            `2️⃣ Limpeza Dental/Manutenção\n` +
             `3️⃣ Extração de Siso\n` +
             `4️⃣ Clareamento Dental\n` +
             `5️⃣ Outro serviço\n\n` +
@@ -262,7 +262,7 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
 
       // opção 4 — falar com a Dra.
       if (lower === "4" || numeric === "4") {
-        const numero = "5585994160815";
+        const numero = "5585992883317";
         const mensagem = encodeURIComponent("Olá! Gostaria de falar com você.");
         const link = `https://wa.me/${numero}?text=${mensagem}`;
 
@@ -293,8 +293,8 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
       }
 
       const procedimentosOdonto = {
-        "1": "Restauração em Resina",
-        "2": "Limpeza Dental",
+        "1": "Facetas Convencionais",
+        "2": "Limpeza Dental/Manutenção",
         "3": "Extração de Siso",
         "4": "Clareamento Dental",
         "5": "Outro serviço",
@@ -345,11 +345,14 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
   });
 
   if (!slots || !slots.length) {
-    await sendMessage(from, "😕 No momento não encontrei horários disponíveis.");
-    state.step = "menu";
-    await setUserState(from, state);
-    return res.status(200).send("no_slots");
+    await sendButtons(from, "😕 Não encontrei horários nesse período. Deseja tentar outro?", [
+      { id: "manha", title: "Manhã" },
+      { id: "tarde", title: "Tarde" },
+      { id: "qualquer", title: "Qualquer horário" },
+    ]);
+    return res.status(200).send("no_slots_retry");
   }
+
 
   state.temp.slots = slots;
 
