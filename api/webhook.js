@@ -189,8 +189,7 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
 
       await sendMessage(
         from,
-        `Olá! Seja bem vinda (o) 😊\n\nSou a assistente da Dra. Gabriela Campos e vou te ajudar com informações e agendamento de consultas.\n\n
-        Para agendar, escolha uma das opções abaixo 👇\n\n` +
+        `Olá! Seja bem vinda (o) 😊\n\nSou a assistente da Dra. Gabriela Campos e vou te ajudar com informações e agendamento de consultas.\n\nPara agendar, escolha uma das opções abaixo 👇\n\n` +
           `1️⃣ Serviços odontológicos\n` +
           `2️⃣ Harmonização facial\n` +
           `3️⃣ Endereço\n` +
