@@ -1,10 +1,6 @@
 import axios from "axios";
 import { getUserState, setUserState, isDuplicateMessage } from "../utils/state.js";
-<<<<<<< HEAD
-import {isTimeSlotFree, createEvent, getAvailableSlots } from "../utils/googleCalendar.js";
-=======
 import { isTimeSlotFree,createEvent, getAvailableSlots } from "../utils/googleCalendar.js";
->>>>>>> 89530ce1467901f0df2184fd5976e85cb8f8363b
 import { isWithinBusinessHours } from "../utils/googleCalendar.js";
 import { appendRow } from "../utils/googleSheets.js";
 import { notifyAdminNewAppointment,sendConfirmationTemplate } from "../utils/whatsapp.js";
@@ -214,14 +210,10 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
 
         await sendMessage(
           from,
-<<<<<<< HEAD
+
           `🦷 *Serviços Odontológicos*\n\n
           Selecione o serviço que deseja agendar:\n\n` +
-            `1️⃣ Facetas Convencionais\n` +
-=======
-          `🦷 *Serviços Odontológicos*\n\n` +
             `1️⃣ Facetas ou Estratificação\n` +
->>>>>>> 89530ce1467901f0df2184fd5976e85cb8f8363b
             `2️⃣ Limpeza Dental/Manutenção\n` +
             `3️⃣ Extração de Siso\n` +
             `4️⃣ Clareamento Dental\n` +
@@ -304,11 +296,8 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
       }
 
       const procedimentosOdonto = {
-<<<<<<< HEAD
-        "1": "Facetas Convencionais",
-=======
+
         "1": "Facetas ou Estratificação",
->>>>>>> 89530ce1467901f0df2184fd5976e85cb8f8363b
         "2": "Limpeza Dental/Manutenção",
         "3": "Extração de Siso",
         "4": "Clareamento Dental",
@@ -359,11 +348,8 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
     durationMinutes: 60,
   });
 
-<<<<<<< HEAD
-  if (!slots || !slots.length) {
-=======
+
    if (!slots || !slots.length) {
->>>>>>> 89530ce1467901f0df2184fd5976e85cb8f8363b
     await sendButtons(from, "😕 Não encontrei horários nesse período. Deseja tentar outro?", [
       { id: "manha", title: "Manhã" },
       { id: "tarde", title: "Tarde" },
