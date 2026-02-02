@@ -189,12 +189,13 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
 
       await sendMessage(
         from,
-        `Olá! Seja bem vinda (o) 😊\n\nSou a assistente da Dra. Gabriela e estou aqui para te ajudar nesse início! Por favor, escolha uma das opções abaixo:\n\n` +
+        `Olá! Seja bem vinda (o) 😊\n\nSou a assistente da Dra. Gabriela Campos e vou te ajudar com informações e agendamento de consultas.\n\n
+        Para agendar, escolha uma das opções abaixo 👇\n\n` +
           `1️⃣ Serviços odontológicos\n` +
           `2️⃣ Harmonização facial\n` +
           `3️⃣ Endereço\n` +
           `4️⃣ Falar com a Dra. Gabriela\n\n` +
-          `Digite apenas o número da opção ou digite sair para encerrar o atendimento.`
+          `✍️ Digite apenas o número da opção desejada ou digite "sair" para encerrar o atendimento.`
       );
 
       return res.status(200).send("menu_sent");
@@ -209,7 +210,8 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
 
         await sendMessage(
           from,
-          `🦷 *Serviços Odontológicos*\n\n` +
+          `🦷 *Serviços Odontológicos*\n\n
+          Selecione o serviço que deseja agendar:\n\n` +
             `1️⃣ Facetas Convencionais\n` +
             `2️⃣ Limpeza Dental/Manutenção\n` +
             `3️⃣ Extração de Siso\n` +
@@ -245,7 +247,7 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
           `7️⃣ *Bioestimulador de Colágeno*\n` +
           `🧪 Melhora firmeza, textura e estimula colágeno.\n\n` +
           `8️⃣ *Outros procedimentos*\n` +
-          `💬 Basta enviar o nome do procedimento que deseja saber mais.`
+          `💬 Basta enviar o nome ou o número do procedimento que deseja saber mais.`
         );
 
         return res.status(200).send("harmonizacao_menu");
