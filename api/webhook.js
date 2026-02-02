@@ -210,8 +210,7 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
         await sendMessage(
           from,
 
-          `🦷 *Serviços Odontológicos*\n\n
-          Selecione o serviço que deseja agendar:\n\n` +
+          `🦷 *Serviços Odontológicos*\n\nSelecione o serviço que deseja agendar:\n\n` +
             `1️⃣ Facetas ou Estratificação\n` +
             `2️⃣ Limpeza Dental/Manutenção\n` +
             `3️⃣ Extração de Siso\n` +
