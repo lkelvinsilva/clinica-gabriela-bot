@@ -195,7 +195,7 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
           `2️⃣ Harmonização facial\n` +
           `3️⃣ Endereço\n` +
           `4️⃣ Falar com a Dra. Gabriela\n\n` +
-          `✍️ Digite apenas o número da opção desejada ou digite "sair" para encerrar o atendimento.`
+          `✍️ Digite apenas o número da opção desejada ou digite *sair* para encerrar o atendimento.`
       );
 
       return res.status(200).send("menu_sent");
