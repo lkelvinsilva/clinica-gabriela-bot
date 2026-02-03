@@ -308,9 +308,23 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
         return res.status(200).send("invalid_odontologia_option");
       }
 
+      if (numeric === "5") {
+        state.step = "odontologia_outro_servico";
+        await setUserState(from, state);
+
+        await sendMessage(
+          from,
+          "🦷 *Outro serviço*\n\nPor favor, escreva qual procedimento odontológico você deseja realizar 😊"
+        );
+
+        return res.status(200).send("ask_custom_procedure");
+      }
+
       state.temp.procedimento = escolhido;
       state.step = "odontologia_confirmar_agendamento";
       await setUserState(from, state);
+
+      
 
       await sendButtons(from, `Você escolheu *${escolhido}*.\nDeseja fazer um agendamento?`, [
         { id: "sim_agendar", title: "Sim" },
@@ -333,6 +347,31 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
 
     return res.status(200).send("ask_period");
   }
+}
+// ---------- OUTRO SERVIÇO ODONTOLOGIA ----------
+if (state.step === "odontologia_outro_servico") {
+  if (!text || text.length < 3) {
+    await sendMessage(
+      from,
+      "❌ Não consegui identificar o procedimento. Pode escrever com um pouco mais de detalhe?"
+    );
+    return res.status(200).send("invalid_custom_procedure");
+  }
+
+  state.temp.procedimento = text;
+  state.step = "odontologia_confirmar_agendamento";
+  await setUserState(from, state);
+
+  await sendButtons(
+    from,
+    `Você informou o procedimento:\n\n*${text}*\n\nDeseja fazer um agendamento?`,
+    [
+      { id: "sim_agendar", title: "Sim" },
+      { id: "nao_agendar", title: "Não" },
+    ]
+  );
+
+  return res.status(200).send("custom_procedure_confirm");
 }
 
   if (state.step === "wait_period") {
