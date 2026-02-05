@@ -3,7 +3,7 @@ import { sendConfirmationTemplate } from "../utils/whatsapp.js";
 
 export default async function handler(req, res) {
   await sendConfirmationTemplate({
-    to: "55SEUNUMEROAQUI",
+    to: "5585994000246",
     paciente: "Teste Bot",
     data: "05/02 às 15h"
   });
