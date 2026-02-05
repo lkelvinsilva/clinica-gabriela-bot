@@ -182,3 +182,18 @@ export function isWithinBusinessHours(date) {
   if (day === 6) return hour >= 8 && hour < 12;
   return (hour >= 9 && hour < 12) || (hour >= 13 && hour < 18);
 }
+/* ===================== LIST UPCOMING EVENTS ===================== */
+export async function listUpcomingEvents(timeMinISO, timeMaxISO) {
+  const auth = getAuth();
+  const calendar = google.calendar({ version: "v3", auth });
+
+  const res = await calendar.events.list({
+    calendarId: process.env.GOOGLE_CALENDAR_ID,
+    timeMin: timeMinISO,
+    timeMax: timeMaxISO,
+    singleEvents: true,
+    orderBy: "startTime",
+  });
+
+  return res.data.items || [];
+}

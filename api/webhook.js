@@ -364,7 +364,7 @@ if (state.step === "odontologia_outro_servico") {
 
   await sendButtons(
     from,
-    `Você informou o procedimento:\n\n*${text}*\n\nDeseja fazer um agendamento?`,
+    `Você informou o procedimento:*${text}*\n\nDeseja fazer um agendamento?`,
     [
       { id: "sim_agendar", title: "Sim" },
       { id: "nao_agendar", title: "Não" },
@@ -394,7 +394,6 @@ if (state.step === "odontologia_outro_servico") {
     ]);
     return res.status(200).send("no_slots_retry");
   }
-
 
   state.temp.slots = slots;
 
@@ -459,7 +458,7 @@ if (state.step === "confirm_slot") {
     return res.status(200).send("back_to_period");
   }
 }
-
+ 
     if (state.step === "ask_name") {
   const nome = text;
 
