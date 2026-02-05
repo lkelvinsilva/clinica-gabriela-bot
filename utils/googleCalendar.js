@@ -121,6 +121,7 @@ export async function createEvent({
     end: { dateTime: endDate.toISOString() },
     attendees,
   };
+  
 
   const response = await calendar.events.insert({
     calendarId: process.env.GOOGLE_CALENDAR_ID,
