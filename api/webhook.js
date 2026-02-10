@@ -181,7 +181,10 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
       lower === "olá" ||
       lower === "bom dia" ||
       lower === "boa tarde" ||
-      lower === "boa noite"
+      lower === "boa noite" ||
+      lower === "Olá! Gostaria de agendar minha consulta."||
+      lower === "Olá! Gostaria de saber mais sobre os procedimentos." ||
+      lower === "Olá! Gostaria de agendar uma consulta." 
     ) {
       state.step = "menu";
       state.temp = {};
@@ -514,10 +517,24 @@ if (state.step === "confirm_slot") {
   }
 
   // ✅ CONFIRMA PARA O USUÁRIO
-  await sendMessage(
-    from,
-    `✅ *Agendamento confirmado!*\n\n👤 ${nome}\n📅 ${startLocal}\nProcedimento: ${state.temp.procedimento}\n⏱️ Duração: 1h`
-  );
+// ✅ TEMPLATE PARA O PACIENTE
+try {
+  await sendConfirmationTemplate({
+    to: from,
+    paciente: nome,
+    data: startLocal,
+    procedimento: state.temp.procedimento,
+  });
+} catch (err) {
+  console.error("⚠️ Erro ao enviar template para paciente:", err);
+}
+
+// (opcional) mensagem simples de apoio
+await sendMessage(
+  from,
+  "💚 Sua consulta foi agendada com sucesso! Qualquer dúvida, estamos à disposição 😊"
+);
+
 
   state.step = "perguntar_algo_mais";
   await setUserState(from, state);
