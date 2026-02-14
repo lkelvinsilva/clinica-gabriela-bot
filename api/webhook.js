@@ -192,15 +192,11 @@ if (state.step === "aguardando_confirmacao") {
 
     // ---------- MENU PRINCIPAL ----------
     
-    if (
+  if (
   lower === "menu" ||
-  lower === "oi" ||
-  lower === "ola" ||
-  lower === "olá" ||
-  lower === "bom dia" ||
-  lower === "boa tarde" ||
-  lower === "boa noite" ||
-  lower === "agendar_site" ||
+  lower.startsWith("oi") ||
+  lower.startsWith("ola") ||
+  lower.startsWith("olá") ||
   lower.includes("site") ||
   lower.includes("agendar") ||
   lower.includes("consulta")
