@@ -421,7 +421,6 @@ if (state.step === "atendimento_encerrado") {
       { id: "manha", title: "Manhã" },
       { id: "tarde", title: "Tarde" },
       { id: "qualquer", title: "Qualquer horário" },
-      { id: "escolher_data", title: "📅 Escolher data" },
     ]);
 
     return res.status(200).send("ask_period");
@@ -502,15 +501,18 @@ if (state.step === "odontologia_outro_servico") {
   });
 
   if (!slots || !slots.length) {
-    await sendButtons(from, "😕 Não encontrei horários nesse período. Deseja tentar outro?", [
+  await sendButtons(
+    from,
+    "😕 Não encontrei horários nesse período.\n\nO que deseja fazer?",
+    [
+      { id: "escolher_data", title: "📅 Escolher data" },
       { id: "manha", title: "Manhã" },
       { id: "tarde", title: "Tarde" },
-      { id: "qualquer", title: "Qualquer horário" },
-      { id: "escolher_data", title: "📅 Escolher data" },
-    ]);
+    ]
+  );
 
-    return res.status(200).send("no_slots_retry");
-  }
+  return res.status(200).send("no_slots_retry");
+}
 
   state.temp.slots = slots;
 
