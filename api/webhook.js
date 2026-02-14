@@ -187,14 +187,18 @@ if (state.step === "aguardando_confirmacao") {
     // ---------- MENU PRINCIPAL ----------
     
   if (
-  lower === "menu" ||
-  lower.startsWith("oi") ||
-  lower.startsWith("ola") ||
-  lower.startsWith("olá") ||
-  lower.includes("site") ||
-  lower.includes("agendar") ||
-  lower.includes("consulta")
+  state.step === "menu" &&
+  (
+    lower === "menu" ||
+    lower.startsWith("oi") ||
+    lower.startsWith("ola") ||
+    lower.startsWith("olá") ||
+    lower.includes("site") ||
+    lower.includes("agendar") ||
+    lower.includes("consulta")
+  )
 ) {
+
   state = { step: "menu", temp: {} };
   await setUserState(from, state);
 
@@ -714,12 +718,20 @@ return res.status(200).send("waiting_confirmation");}
       }
 
       if (lower === "help_nao" || lower === "não" || lower === "nao") {
-        await sendMessage(from, "Foi um prazer ajudar! 😊 Até logo.");
-        state.step = "menu";
-        state.temp = {};
-        await setUserState(from, state);
-        return res.status(200).send("end_convo");
-      }
+
+  await sendButtons(
+    from,
+    "😊 Atendimento encerrado.\n\nSe precisar de algo, estou por aqui 💚",
+    [
+      { id: "falar_dra", title: "Falar com a Dra." },
+      { id: "voltar_menu", title: "Menu principal" }
+    ]
+  );
+
+  await setUserState(from, { step: "atendimento_encerrado", temp: {} });
+  return res.status(200).send("end_convo");
+}
+
 
       await sendMessage(from, "Use os botões *Sim* ou *Não* ou escreva 'sim' / 'não'.");
       return res.status(200).send("invalid_help_choice");
