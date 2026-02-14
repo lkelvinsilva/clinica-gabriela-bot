@@ -110,7 +110,7 @@ if (!message) return res.status(200).send("no_message");
 
 const msgId = message.id;
 const from = message.from;
-// 🔥 TRATAMENTO PRIORITÁRIO DE BOTÕES (ANTES DE QUALQUER FLUXO)
+// 🔥 TRATAMENTO PRIORITÁRIO DE BOTÕES 
 if (message?.type === "button" && message.button?.payload) {
   const payload = message.button.payload;
 
