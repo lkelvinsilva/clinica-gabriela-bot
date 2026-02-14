@@ -191,6 +191,7 @@ if (state.step === "aguardando_confirmacao") {
 }
 
     // ---------- MENU PRINCIPAL ----------
+    
     if (
       lower === "menu" ||
       lower === "oi" ||
@@ -603,23 +604,14 @@ try {
   console.error("⚠️ Erro ao enviar template para paciente:", err);
 }
 
-// (opcional) mensagem simples de apoio
-await sendMessage(
-  from,
-  "💚 Sua consulta foi agendada com sucesso! Qualquer dúvida, estamos à disposição 😊"
-);
+// 🔒 estado FINAL — aguardando clique do botão
+await setUserState(from, {
+  step: "aguardando_confirmacao",
+  temp: {}
+});
 
+return res.status(200).send("waiting_confirmation");}
 
-  state.step = "perguntar_algo_mais";
-  await setUserState(from, state);
-
-  await sendButtons(from, "Quer minha ajuda com mais alguma coisa?", [
-    { id: "help_sim", title: "Sim" },
-    { id: "help_nao", title: "Não" },
-  ]);
-
-  return res.status(200).send("agendamento_confirmado");
-}
 
     // ---------- PERGUNTAR SE QUER MAIS ALGO ----------
       if (state.step === "perguntar_algo_mais") {
