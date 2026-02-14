@@ -199,6 +199,7 @@ if (state.step === "aguardando_confirmacao") {
       lower === "bom dia" ||
       lower === "boa tarde" ||
       lower === "boa noite" ||
+      lower === "agendar_site" ||
       lower === "Olá! Gostaria de agendar minha consulta."||
       lower === "Olá! Gostaria de saber mais sobre os procedimentos." ||
       lower === "Olá! Gostaria de agendar uma consulta." 
