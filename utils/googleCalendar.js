@@ -46,28 +46,38 @@ function getAuth() {
 export async function getAvailableSlots({
   daysAhead = 45,
   durationMinutes = 60,
-  period = "qualquer", // 'manha', 'tarde', 'qualquer'
+  period = null, // 'manha', 'tarde', 'qualquer'
+  dateRange = null,
 }) {
   const auth = getAuth();
   const calendar = google.calendar({ version: "v3", auth });
   const calendarId = process.env.GOOGLE_CALENDAR_ID;
 
-  const now = getNow();
-  now.setUTCHours(0, 0, 0, 0);
-  now.setUTCDate(now.getUTCDate() + 1); // começa no próximo dia
+  let startDate;
+
+if (dateRange?.start) {
+  startDate = new Date(dateRange.start);
+} else {
+  startDate = getNow();
+  startDate.setUTCHours(0, 0, 0, 0);
+  startDate.setUTCDate(startDate.getUTCDate() + 1);
+}
+
 
   const slots = [];
 
   for (let d = 0; d < daysAhead; d++) {
-    const currentDay = new Date(now);
-    currentDay.setUTCDate(now.getUTCDate() + d);
+    const currentDay = new Date(startDate);
+currentDay.setUTCDate(startDate.getUTCDate() + d);
+
 
     let blocks = getBusinessHours(currentDay);
     if (!blocks) continue;
 
     if (period === "manha") {
       blocks = blocks.filter(b => b.start < 12);
-    } else if (period === "tarde") {
+    } 
+    if (period === "tarde") {
       blocks = blocks.filter(b => b.start >= 13);
     }
 
