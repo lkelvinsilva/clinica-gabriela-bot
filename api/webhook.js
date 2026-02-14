@@ -420,7 +420,7 @@ if (state.step === "atendimento_encerrado") {
     await sendButtons(from, "Qual período você prefere?", [
       { id: "manha", title: "Manhã" },
       { id: "tarde", title: "Tarde" },
-      { id: "qualquer", title: "Qualquer horário" },
+      { id: "escolher_data", title: "📅 Escolher data" },
     ]);
 
     return res.status(200).send("ask_period");
@@ -485,12 +485,12 @@ if (state.step === "odontologia_outro_servico") {
   }
 
   // ⏰ Período normal
-  const period = ["manha", "tarde", "qualquer"].includes(lower)
+  const period = ["manha", "tarde",].includes(lower)
     ? lower
     : null;
 
   if (!period) {
-    await sendMessage(from, "Escolha Manhã, Tarde ou Qualquer horário 😊");
+    await sendMessage(from, "Escolha Manhã, Tarde 😊");
     return res.status(200).send("invalid_period");
   }
 
@@ -505,9 +505,9 @@ if (state.step === "odontologia_outro_servico") {
     from,
     "😕 Não encontrei horários nesse período.\n\nO que deseja fazer?",
     [
-      { id: "escolher_data", title: "📅 Escolher data" },
       { id: "manha", title: "Manhã" },
       { id: "tarde", title: "Tarde" },
+      { id: "escolher_data", title: "📅 Escolher data" },
     ]
   );
 
@@ -568,7 +568,8 @@ if (state.step === "ask_when") {
     await sendButtons(from, "Qual período você prefere?", [
       { id: "manha", title: "Manhã" },
       { id: "tarde", title: "Tarde" },
-      { id: "qualquer", title: "Qualquer horário" },
+      { id: "escolher_data", title: "📅 Escolher data" },
+      
     ]);
 
     return res.status(200).send("ask_period_again");
@@ -601,7 +602,8 @@ if (state.step === "ask_custom_date") {
   await sendButtons(from, "Qual período você prefere?", [
     { id: "manha", title: "Manhã" },
     { id: "tarde", title: "Tarde" },
-    { id: "qualquer", title: "Qualquer horário" },
+    { id: "escolher_data", title: "📅 Escolher data" },
+    
   ]);
 
   return res.status(200).send("custom_date_ok");
@@ -655,7 +657,8 @@ if (state.step === "confirm_slot") {
     await sendButtons(from, "Qual período você prefere?", [
       { id: "manha", title: "Manhã" },
       { id: "tarde", title: "Tarde" },
-      { id: "qualquer", title: "Qualquer horário" },
+      { id: "escolher_data", title: "📅 Escolher data" },
+      
     ]);
 
     return res.status(200).send("back_to_period");
