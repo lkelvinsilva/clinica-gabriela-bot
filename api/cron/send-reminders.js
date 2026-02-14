@@ -4,20 +4,27 @@ import { setUserState } from "../utils/state.js";
 
 export default async function handler(req, res) {
   try {
-    const now = new Date();
-
+    
     // janela exata de 24h
-    const startWindow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const endWindow = new Date(now.getTime() + 25 * 60 * 60 * 1000);
-
-    const events = await listUpcomingEvents(
-      startWindow.toISOString(),
-      endWindow.toISOString()
-    );
+    const events = await listUpcomingEvents(); // busca próximos eventos
 
     console.log("Eventos encontrados para lembrete:", events.length);
 
     for (const event of events) {
+      const eventStart = new Date(event.start.dateTime);
+const now = new Date();
+
+// diferença em horas
+const diffMs = eventStart.getTime() - now.getTime();
+const diffHours = diffMs / (1000 * 60 * 60);
+
+// ✅ só envia se estiver ENTRE 23h e 24h
+if (diffHours < 23 || diffHours > 24) {
+  console.log("⏱️ Fora da janela de 24h:", event.summary, diffHours.toFixed(2));
+  continue;
+}
+
+event.status === "cancelled"
 
       // 🔥 1️⃣ Ignora se já enviou lembrete
       if (event.description?.includes("LEMBRETE_ENVIADO")) {

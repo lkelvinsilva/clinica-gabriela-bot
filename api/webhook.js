@@ -110,6 +110,35 @@ if (!message) return res.status(200).send("no_message");
 
 const msgId = message.id;
 const from = message.from;
+// 🔥 TRATAMENTO PRIORITÁRIO DE BOTÕES (ANTES DE QUALQUER FLUXO)
+if (message?.type === "button" && message.button?.payload) {
+  const payload = message.button.payload;
+
+  // ✅ CONFIRMAR CONSULTA (LEMBRETE)
+  if (payload === "CONFIRMAR_CONSULTA") {
+    await sendMessage(
+      from,
+      "✅ Consulta confirmada com sucesso! Te aguardamos 💚"
+    );
+
+    await setUserState(from, { step: "menu", temp: {} });
+
+    return res.status(200).send("confirmed_by_button");
+  }
+
+  // ❌ CANCELAR CONSULTA
+  if (payload === "CANCELAR_CONSULTA") {
+    await sendMessage(
+      from,
+      "❌ Consulta cancelada. Obrigado por avisar."
+    );
+
+    await setUserState(from, { step: "menu", temp: {} });
+
+    return res.status(200).send("cancelled_by_button");
+  }
+}
+
 
 let incomingText = "";
 
