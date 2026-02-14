@@ -6,17 +6,23 @@ import { appendRow } from "../utils/googleSheets.js";
 import { notifyAdminNewAppointment,sendConfirmationTemplate } from "../utils/whatsapp.js";
 
 // ---------------------- PARSE DE DATA ----------------------
-function parseDateTime(text) {
-  // Regex para pegar DD/MM/YYYY HH:mm
-  const m = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(?:às\s*)?(\d{1,2}):(\d{2})/i);
+function parseCustomDate(text) {
+  const m = text.match(/(\d{1,2})\/(\d{1,2})/);
   if (!m) return null;
-  
-  const [, d, mo, y, hh, mm] = m;
-  
-  // Criamos a string no formato ISO local SEM o "Z" no final
-  // O seu arquivo googleCalendar.js (que corrigimos antes) cuidará do OFFSET
-  return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}T${hh.padStart(2, "0")}:${mm}:00`;
+
+  const [, d, mo] = m;
+  const year = new Date().getFullYear();
+
+  const date = new Date(year, Number(mo) - 1, Number(d));
+
+  // Se a data já passou esse ano, agenda pro próximo ano
+  if (date < new Date()) {
+    date.setFullYear(year + 1);
+  }
+
+  return date;
 }
+
 
 
 // ---------------------- ENVIO DE MENSAGEM SIMPLES ----------------------
@@ -159,28 +165,15 @@ const numeric = lower.replace(/[^0-9]/g, "");
 
 if (state.step === "aguardando_confirmacao") {
 
-  console.log("DEBUG CONFIRMATION:", {
-    lower,
-    messageType: message.type,
-    buttonPayload: message.button?.payload,
-    interactiveId: message.interactive?.button_reply?.id
-  });
+  const action = lower.trim();
 
-  if (
-    lower === "confirmar" ||
-    lower === "confirmar_consulta" ||
-    lower === "confirm"
-  ) {
+  if (action.includes("confirm")) {
     await sendMessage(from, "✅ Consulta confirmada! Te aguardamos 💚");
     await setUserState(from, { step: "menu", temp: {} });
     return res.status(200).send("confirmed");
   }
 
-  if (
-    lower === "cancelar" ||
-    lower === "cancelar_consulta" ||
-    lower === "cancel"
-  ) {
+  if (action.includes("cancel")) {
     await sendMessage(from, "❌ Consulta desmarcada. Obrigada por avisar.");
     await setUserState(from, { step: "menu", temp: {} });
     return res.status(200).send("cancelled");
@@ -189,6 +182,7 @@ if (state.step === "aguardando_confirmacao") {
   await sendMessage(from, "Use os botões Confirmar ou Cancelar 😊");
   return res.status(200).send("invalid_confirmation");
 }
+
 
     // ---------- MENU PRINCIPAL ----------
     
@@ -394,6 +388,7 @@ if (state.step === "atendimento_encerrado") {
       { id: "manha", title: "Manhã" },
       { id: "tarde", title: "Tarde" },
       { id: "qualquer", title: "Qualquer horário" },
+      { id: "escolher_data", title: "📅 Escolher data" },
     ]);
 
     return res.status(200).send("ask_period");
@@ -440,25 +435,47 @@ if (state.step === "odontologia_outro_servico") {
   return res.status(200).send("custom_procedure_confirm");
 }
 
-  if (state.step === "wait_period") {
-  const period = ["manha", "tarde", "qualquer"].includes(lower)
-  ? lower
-  : "qualquer";
+ if (state.step === "wait_period") {
 
+  // 📅 Escolher data personalizada
+  if (lower === "escolher_data") {
+    state.step = "ask_when";
+    await setUserState(from, state);
+
+    await sendButtons(from, "Quando você prefere agendar?", [
+      { id: "quando_7", title: "Semana que vem" },
+      { id: "quando_15", title: "Daqui a 15 dias" },
+      { id: "quando_30", title: "Daqui a 30 dias" },
+      { id: "quando_outro", title: "Outra data" },
+    ]);
+
+    return res.status(200).send("ask_when");
+  }
+
+  // ⏰ Período normal
+  const period = ["manha", "tarde", "qualquer"].includes(lower)
+    ? lower
+    : null;
+
+  if (!period) {
+    await sendMessage(from, "Escolha Manhã, Tarde ou Qualquer horário 😊");
+    return res.status(200).send("invalid_period");
+  }
 
   const slots = await getAvailableSlots({
     period,
     durationMinutes: 60,
+    dateRange: state.temp.dateRange || null,
   });
 
-
-   if (!slots || !slots.length) {
+  if (!slots || !slots.length) {
     await sendButtons(from, "😕 Não encontrei horários nesse período. Deseja tentar outro?", [
       { id: "manha", title: "Manhã" },
       { id: "tarde", title: "Tarde" },
       { id: "qualquer", title: "Qualquer horário" },
-      { id: "falar_dra", title: "Falar com a Dra." }
+      { id: "escolher_data", title: "📅 Escolher data" },
     ]);
+
     return res.status(200).send("no_slots_retry");
   }
 
@@ -470,11 +487,89 @@ if (state.step === "odontologia_outro_servico") {
   });
 
   msg += "\nDigite o número da opção.";
+
   await sendMessage(from, msg);
 
   state.step = "choose_slot";
   await setUserState(from, state);
+
   return res.status(200).send("show_slots");
+}
+if (state.step === "ask_when") {
+
+  let daysAhead = 0;
+
+  if (lower === "quando_7") daysAhead = 7;
+  if (lower === "quando_15") daysAhead = 15;
+  if (lower === "quando_30") daysAhead = 30;
+
+  if (lower === "quando_outro") {
+    state.step = "ask_custom_date";
+    await setUserState(from, state);
+
+    await sendMessage(
+      from,
+      "Perfeito 😊 Escreva a data que você prefere (ex: 15/03)."
+    );
+
+    return res.status(200).send("ask_custom_date");
+  }
+
+  if (daysAhead > 0) {
+    const start = new Date();
+    start.setDate(start.getDate() + daysAhead);
+
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+
+    state.temp.dateRange = {
+      start: start.toISOString(),
+      end: end.toISOString(),
+    };
+
+    state.step = "wait_period";
+    await setUserState(from, state);
+
+    await sendButtons(from, "Qual período você prefere?", [
+      { id: "manha", title: "Manhã" },
+      { id: "tarde", title: "Tarde" },
+      { id: "qualquer", title: "Qualquer horário" },
+    ]);
+
+    return res.status(200).send("ask_period_again");
+  }
+
+  await sendMessage(from, "Escolha uma das opções 😊");
+  return res.status(200).send("invalid_when");
+}
+if (state.step === "ask_custom_date") {
+
+  const date = parseCustomDate(text);
+
+  if (!date) {
+    await sendMessage(from, "❌ Data inválida. Exemplo: 15/03");
+    return res.status(200).send("invalid_date");
+  }
+
+  const start = new Date(date);
+  const end = new Date(date);
+  end.setDate(end.getDate() + 7);
+
+  state.temp.dateRange = {
+    start: start.toISOString(),
+    end: end.toISOString(),
+  };
+
+  state.step = "wait_period";
+  await setUserState(from, state);
+
+  await sendButtons(from, "Qual período você prefere?", [
+    { id: "manha", title: "Manhã" },
+    { id: "tarde", title: "Tarde" },
+    { id: "qualquer", title: "Qualquer horário" },
+  ]);
+
+  return res.status(200).send("custom_date_ok");
 }
 
 if (state.step === "choose_slot") {
