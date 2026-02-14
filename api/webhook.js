@@ -99,9 +99,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    const entry = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-    if (!entry) return res.status(200).send("no_message");
-
    const message = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 if (!message) return res.status(200).send("no_message");
 
@@ -143,35 +140,55 @@ const numeric = lower.replace(/[^0-9]/g, "");
 
     // comando de saída
     if (["sair", "encerrar", "finalizar", "cancelar", "0"].includes(lower)) {
-      await sendMessage(from, "😊 Atendimento encerrado.\n\nSe precisar de algo, é só digitar *menu*.");
-      await setUserState(from, { step: "menu", temp: {} });
-      return res.status(200).send("session_ended");
-    }
+
+  await sendButtons(
+    from,
+    "😊 Atendimento encerrado.\n\nSe precisar de algo, estou por aqui 💚",
+    [
+      { id: "falar_dra", title: "Falar com a Dra." },
+      { id: "voltar_menu", title: "Menu principal" }
+    ]
+  );
+
+  await setUserState(from, { step: "atendimento_encerrado", temp: {} });
+
+  return res.status(200).send("session_ended");
+}
 
         // ---------- CONFIRMAÇÃO / CANCELAMENTO DE CONSULTA ----------
 
-// ---------- CONFIRMAÇÃO / CANCELAMENTO DE CONSULTA ----------
 if (state.step === "aguardando_confirmacao") {
 
+  console.log("DEBUG CONFIRMATION:", {
+    lower,
+    messageType: message.type,
+    buttonPayload: message.button?.payload,
+    interactiveId: message.interactive?.button_reply?.id
+  });
 
-  if (text === "confirmar") {
+  if (
+    lower === "confirmar" ||
+    lower === "confirmar_consulta" ||
+    lower === "confirm"
+  ) {
     await sendMessage(from, "✅ Consulta confirmada! Te aguardamos 💚");
     await setUserState(from, { step: "menu", temp: {} });
     return res.status(200).send("confirmed");
   }
 
-  if (text === "cancelar") {
+  if (
+    lower === "cancelar" ||
+    lower === "cancelar_consulta" ||
+    lower === "cancel"
+  ) {
     await sendMessage(from, "❌ Consulta desmarcada. Obrigada por avisar.");
     await setUserState(from, { step: "menu", temp: {} });
     return res.status(200).send("cancelled");
   }
 
-  await sendMessage(from, "Por favor, use os botões *Confirmar* ou *Cancelar*.");
+  await sendMessage(from, "Use os botões Confirmar ou Cancelar 😊");
   return res.status(200).send("invalid_confirmation");
 }
-console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
-
-
 
     // ---------- MENU PRINCIPAL ----------
     if (
@@ -202,6 +219,39 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
 
       return res.status(200).send("menu_sent");
     }
+// ---------- ATENDIMENTO ENCERRADO ----------
+if (state.step === "atendimento_encerrado") {
+
+  if (lower === "falar_dra") {
+    const numero = "5585992883317";
+    const mensagem = encodeURIComponent("Olá! Gostaria de falar com você.");
+    const link = `https://wa.me/${numero}?text=${mensagem}`;
+
+    await sendMessage(
+      from,
+      `📞 Vou avisar a Dra. Gabriela agora mesmo 💚
+\n\n👉 ${link}`
+    );
+
+    await setUserState(from, { step: "menu", temp: {} });
+    return res.status(200).send("redirect_dra");
+  }
+
+  if (lower === "voltar_menu" || lower === "menu") {
+    state.step = "menu";
+    await setUserState(from, state);
+
+    await sendMessage(
+      from,
+      "Perfeito 😊 Digite *menu* para ver as opções novamente."
+    );
+
+    return res.status(200).send("back_to_menu");
+  }
+
+  await sendMessage(from, "Use os botões para continuar 😊");
+  return res.status(200).send("invalid_option");
+}
 
     // Se estamos no estado inicial "menu" e o usuário enviou uma opção:
     if (state.step === "menu") {
@@ -305,7 +355,7 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
         "5": "Outro serviço",
       };
 
-      const escolhido = procedimentosOdonto[numeric] || procedimentosOdonto[text];
+      const escolhido = procedimentosOdonto[numeric];
       if (!escolhido) {
         await sendMessage(from, "❌ Opção inválida. Digite o número do procedimento ou *menu* para voltar.");
         return res.status(200).send("invalid_odontologia_option");
@@ -338,6 +388,7 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
     }
    
   if (state.step === "odontologia_confirmar_agendamento") {
+
   if (lower === "sim_agendar" || lower === "sim") {
     state.step = "wait_period";
     await setUserState(from, state);
@@ -350,7 +401,22 @@ console.log("DEBUG TEMPLATE BUTTON:", entry.interactive?.button_reply);
 
     return res.status(200).send("ask_period");
   }
+
+  if (lower === "nao_agendar" || lower === "não" || lower === "nao") {
+    await sendMessage(from, "Sem problemas 😊 Posso ajudar com algo mais?");
+    state.step = "perguntar_algo_mais";
+    await setUserState(from, state);
+
+    await sendButtons(from, "Quer ajuda com mais alguma coisa?", [
+      { id: "help_sim", title: "Sim" },
+      { id: "help_nao", title: "Não" },
+    ]);
+
+    return res.status(200).send("no_agendamento");
+  }
+
 }
+
 // ---------- OUTRO SERVIÇO ODONTOLOGIA ----------
 if (state.step === "odontologia_outro_servico") {
   if (!text || text.length < 3) {
@@ -367,7 +433,7 @@ if (state.step === "odontologia_outro_servico") {
 
   await sendButtons(
     from,
-    `Você informou o procedimento:*${text}*\n\nDeseja fazer um agendamento?`,
+    `Você informou o procedimento: *${text}*\n\nDeseja fazer um agendamento?`,
     [
       { id: "sim_agendar", title: "Sim" },
       { id: "nao_agendar", title: "Não" },
@@ -394,6 +460,7 @@ if (state.step === "odontologia_outro_servico") {
       { id: "manha", title: "Manhã" },
       { id: "tarde", title: "Tarde" },
       { id: "qualquer", title: "Qualquer horário" },
+      { id: "falar_dra", title: "Falar com a Dra." }
     ]);
     return res.status(200).send("no_slots_retry");
   }
@@ -423,6 +490,12 @@ if (state.step === "choose_slot") {
   }
 
   state.temp.selectedSlot = slot;
+  if (!state.temp.selectedSlot?.iso) {
+  await sendMessage(from, "❌ Horário inválido. Vamos começar novamente.");
+  await setUserState(from, { step: "menu", temp: {} });
+  return res.status(200).send("slot_error");
+}
+
 
   await sendButtons(
     from,
@@ -516,7 +589,7 @@ if (state.step === "confirm_slot") {
     console.error("Erro ao salvar na planilha:", err);
   }
 
-  // ✅ CONFIRMA PARA O USUÁRIO
+  
 // ✅ TEMPLATE PARA O PACIENTE
 try {
   await sendConfirmationTemplate({

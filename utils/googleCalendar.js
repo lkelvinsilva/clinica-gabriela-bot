@@ -1,4 +1,13 @@
 import { google } from "googleapis";
+export async function updateEventDescription(eventId, newDescription) {
+  await calendar.events.patch({
+    calendarId: process.env.GOOGLE_CALENDAR_ID,
+    eventId,
+    requestBody: {
+      description: newDescription,
+    },
+  });
+}
 
 /* ===================== CONFIGURAÇÕES ===================== */
 const TIMEZONE = process.env.TIMEZONE || "America/Fortaleza";
