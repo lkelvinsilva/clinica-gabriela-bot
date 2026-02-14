@@ -193,21 +193,20 @@ if (state.step === "aguardando_confirmacao") {
     // ---------- MENU PRINCIPAL ----------
     
     if (
-      lower === "menu" ||
-      lower === "oi" ||
-      lower === "ola" ||
-      lower === "olá" ||
-      lower === "bom dia" ||
-      lower === "boa tarde" ||
-      lower === "boa noite" ||
-      lower === "agendar_site" ||
-      lower === "Olá! Gostaria de agendar minha consulta."||
-      lower === "Olá! Gostaria de saber mais sobre os procedimentos." ||
-      lower === "Olá! Gostaria de agendar uma consulta." 
-    ) {
-      state.step = "menu";
-      state.temp = {};
-      await setUserState(from, state);
+  lower === "menu" ||
+  lower === "oi" ||
+  lower === "ola" ||
+  lower === "olá" ||
+  lower === "bom dia" ||
+  lower === "boa tarde" ||
+  lower === "boa noite" ||
+  lower === "agendar_site" ||
+  lower.includes("site") ||
+  lower.includes("agendar") ||
+  lower.includes("consulta")
+) {
+  state = { step: "menu", temp: {} };
+  await setUserState(from, state);
 
       await sendMessage(
         from,
@@ -636,7 +635,7 @@ return res.status(200).send("waiting_confirmation");}
     }
 
     // ----------------- FLUXO HARMONIZAÇÃO -----------------
-    else if (state.step === "harmonizacao_procedimento") {
+    if (state.step === "harmonizacao_procedimento") {
       const procedimentos = {
         "1": "Preenchimento Labial",
         "2": "Toxina Botulínica (Botox)",
