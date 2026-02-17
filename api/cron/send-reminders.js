@@ -19,7 +19,7 @@ const diffMs = eventStart.getTime() - now.getTime();
 const diffHours = diffMs / (1000 * 60 * 60);
 
 // ✅ só envia se estiver ENTRE 23h e 24h
-if (diffHours < 23 || diffHours > 24) {
+if (diffHours < 23 || diffHours > 25) {
   console.log("⏱️ Fora da janela de 24h:", event.summary, diffHours.toFixed(2));
   continue;
 }
