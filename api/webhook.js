@@ -195,7 +195,6 @@ if (
 }
 
 // ---------------- ATENDIMENTO ENCERRADO ----------------
-if (state.step === "atendimento_encerrado") {
 
   if (lower === "menu_principal") {
 
@@ -216,16 +215,23 @@ if (state.step === "atendimento_encerrado") {
 
   if (lower === "falar_dra") {
 
-    await sendMessage(
-      from,
-      "Perfeito 💬\n\nVou encaminhar você para falar diretamente com a Dra. Gabriela."
-    );
+  const numero = "5585992883317"; // número da Dra.
+  const mensagem = encodeURIComponent(
+    "Olá! Gostaria de falar com você 😊"
+  );
 
-    return res.status(200).send("redirect_to_dra");
-  }
+  const link = `https://wa.me/${numero}?text=${mensagem}`;
 
-  return res.status(200).send("waiting_after_end");
+  await sendMessage(
+    from,
+    `📞 *Perfeito!*\n\n` +
+    `Clique no link abaixo para falar diretamente com a Dra. Gabriela:\n\n` +
+    `${link}`
+  );
+
+  return res.status(200).send("redirect_to_dra");
 }
+
 
 
     // ---------- MENU PRINCIPAL ----------
@@ -744,6 +750,7 @@ Posso ajudar com mais alguma coisa?`,
     [
       { id: "menu_principal", title: "Menu principal" },
       { id: "encerrar_atendimento", title: "Encerrar atendimento" },
+      { id: "falar_dra", title: "Falar com a Dra." },
     ]
   );
 
@@ -784,6 +791,48 @@ Posso ajudar com mais alguma coisa?`,
       await sendMessage(from, "Use os botões *Sim* ou *Não* ou escreva 'sim' / 'não'.");
       return res.status(200).send("invalid_help_choice");
     }
+// ---------- PÓS AGENDAMENTO ----------
+if (state.step === "pos_agendamento") {
+
+  if (lower === "falar_dra") {
+    const numero = "5585992883317";
+    const mensagem = encodeURIComponent(
+      "Olá! Acabei de agendar uma consulta pelo WhatsApp 😊"
+    );
+    const link = `https://wa.me/${numero}?text=${mensagem}`;
+
+    await sendMessage(
+      from,
+      `📞 Perfeito!\n\n👉 Clique no link para falar diretamente com a Dra.:\n\n${link}`
+    );
+
+    return res.status(200).send("redirect_dra_after_booking");
+  }
+
+  if (lower === "menu_principal") {
+    await setUserState(from, { step: "menu", temp: {} });
+    await sendMessage(from, "Digite *menu* para ver as opções novamente 😊");
+    return res.status(200).send("back_menu_after_booking");
+  }
+
+  if (lower === "encerrar_atendimento") {
+    await setUserState(from, { step: "atendimento_encerrado", temp: {} });
+
+    await sendButtons(
+      from,
+      "😊 Atendimento encerrado.\n\nSe precisar de algo, estou por aqui 💚",
+      [
+        { id: "menu_principal", title: "Menu principal" },
+        { id: "falar_dra", title: "Falar com a Dra." }
+      ]
+    );
+
+    return res.status(200).send("end_after_booking");
+  }
+
+  await sendMessage(from, "Use os botões para continuar 😊");
+  return res.status(200).send("invalid_pos_booking");
+}
 
     // ----------------- FLUXO HARMONIZAÇÃO -----------------
     if (state.step === "harmonizacao_procedimento") {
