@@ -36,14 +36,19 @@ if (event.status === "cancelled") {
         continue;
       }
 
-      // 🔥 2️⃣ Ignora evento criado há menos de 1 hora
-      const createdAt = new Date(event.created);
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      // 🔥 Ignora eventos criados no mesmo dia
+const createdAt = new Date(event.created);
+const today = new Date();
 
-      if (createdAt > oneHourAgo) {
-        console.log("Evento muito recente, ignorado:", event.summary);
-        continue;
-      }
+if (
+  createdAt.getDate() === today.getDate() &&
+  createdAt.getMonth() === today.getMonth() &&
+  createdAt.getFullYear() === today.getFullYear()
+) {
+  console.log("🛑 Evento criado hoje, não envia lembrete:", event.summary);
+  continue;
+}
+
 
       // 🔥 3️⃣ Extrai telefone da descrição
       const phoneMatch = event.description?.match(/\((\d+)\)/);
