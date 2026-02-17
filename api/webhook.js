@@ -201,7 +201,7 @@ if (state.step === "atendimento_encerrado") {
 
     await sendMessage(
       from,
-      "Olá novamente 😊\n\nEscolha uma das opções abaixo:\n\n" +
+      `Olá! Seja bem vinda (o) novamente😊\n\nSou a assistente da Dra. Gabriela Campos e vou te ajudar com informações e agendamento de consultas.\n\nPara agendar, escolha uma das opções abaixo 👇\n\n` +
       "1️⃣ Serviços odontológicos\n" +
       "2️⃣ Harmonização facial\n" +
       "3️⃣ Endereço\n" +
