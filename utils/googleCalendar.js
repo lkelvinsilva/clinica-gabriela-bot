@@ -217,3 +217,21 @@ export async function listUpcomingEvents(timeMinISO, timeMaxISO) {
 
   return res.data.items || [];
 }
+/* ===================== CANCEL EVENT ===================== */
+export async function cancelEvent(eventId) {
+  try {
+    const auth = getAuth();
+    const calendar = google.calendar({ version: "v3", auth });
+
+    await calendar.events.delete({
+      calendarId: process.env.GOOGLE_CALENDAR_ID,
+      eventId: eventId,
+    });
+
+    console.log("Evento cancelado:", eventId);
+    return true;
+  } catch (error) {
+    console.error("Erro ao cancelar evento:", error.message);
+    return false;
+  }
+}

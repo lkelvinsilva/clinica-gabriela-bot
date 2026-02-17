@@ -18,11 +18,12 @@ const now = new Date();
 const diffMs = eventStart.getTime() - now.getTime();
 const diffHours = diffMs / (1000 * 60 * 60);
 
-// ✅ só envia se estiver ENTRE 23h e 24h
-if (diffHours < 23 || diffHours > 24) {
-  console.log("⏱️ Fora da janela de 24h:", event.summary, diffHours.toFixed(2));
+// janela de 24h com margem de 5 minutos
+if (diffHours < 23.9 || diffHours > 24.1) {
+  console.log("⏱️ Fora da janela exata:", event.summary, diffHours.toFixed(2));
   continue;
 }
+
 
 if (event.status === "cancelled") {
   console.log("Evento cancelado, ignorado:", event.summary);
