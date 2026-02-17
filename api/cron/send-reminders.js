@@ -19,12 +19,16 @@ const diffMs = eventStart.getTime() - now.getTime();
 const diffHours = diffMs / (1000 * 60 * 60);
 
 // ✅ só envia se estiver ENTRE 23h e 24h
-if (diffHours < 23 || diffHours > 25) {
+if (diffHours < 23 || diffHours > 24) {
   console.log("⏱️ Fora da janela de 24h:", event.summary, diffHours.toFixed(2));
   continue;
 }
 
-event.status === "cancelled"
+if (event.status === "cancelled") {
+  console.log("Evento cancelado, ignorado:", event.summary);
+  continue;
+}
+
 
       // 🔥 1️⃣ Ignora se já enviou lembrete
       if (event.description?.includes("LEMBRETE_ENVIADO")) {
@@ -63,7 +67,7 @@ event.status === "cancelled"
 
       // 🔥 5️⃣ Atualiza estado do usuário
       await setUserState(phone, {
-        step: "aguardando_confirmacao",
+        step: "confirmando_presenca",
         temp: {
           appointmentDate: date,
           eventId: event.id,

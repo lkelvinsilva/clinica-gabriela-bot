@@ -224,28 +224,6 @@ if (state.step === "atendimento_encerrado") {
   return res.status(200).send("waiting_after_end");
 }
 
-        // ---------- CONFIRMAÇÃO / CANCELAMENTO DE CONSULTA ----------
-
-if (state.step === "aguardando_confirmacao") {
-
-  const action = lower.trim();
-
-  if (action.includes("confirm")) {
-    await sendMessage(from, "✅ Consulta confirmada! Te aguardamos 💚");
-    await setUserState(from, { step: "menu", temp: {} });
-    return res.status(200).send("confirmed");
-  }
-
-  if (action.includes("cancel")) {
-    await sendMessage(from, "❌ Consulta desmarcada. Obrigada por avisar.");
-    await setUserState(from, { step: "menu", temp: {} });
-    return res.status(200).send("cancelled");
-  }
-
-  await sendMessage(from, "Use os botões Confirmar ou Cancelar 😊");
-  return res.status(200).send("invalid_confirmation");
-}
-
 
     // ---------- MENU PRINCIPAL ----------
     
@@ -724,22 +702,6 @@ if (state.step === "confirm_slot") {
   const startLocal = new Date(state.temp.selectedSlot.iso).toLocaleString("pt-BR", {
     timeZone: "America/Fortaleza",
   });
-  // ---------- AGENDAMENTO CONCLUÍDO ----------
-if (state.step === "agendamento_concluido") {
-
-  await sendButtons(
-    from,
-    "✅ Seu agendamento foi realizado com sucesso!\n\nPosso ajudar com mais alguma coisa?",
-    [
-      { id: "menu_principal", title: "Menu principal" },
-      { id: "encerrar_atendimento", title: "Encerrar atendimento" }
-    ]
-  );
-
-  await setUserState(from, { step: "pos_agendamento", temp: {} });
-
-  return res.status(200).send("after_booking");
-}
 
 
   // ✅ NOTIFICA ADMIN
