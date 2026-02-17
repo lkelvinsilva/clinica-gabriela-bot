@@ -172,22 +172,56 @@ const numeric = lower.replace(/[^0-9]/g, "");
     let state = (await getUserState(from)) || { step: "menu", temp: {} };
     if (!state.step) state.step = "menu";
     if (!state.temp) state.temp = {};
+// comando de saída GLOBAL
+if (["sair", "encerrar", "finalizar", "cancelar", "0"].includes(lower)) {
 
-    // comando de saída
-    if (["sair", "encerrar", "finalizar", "cancelar", "0"].includes(lower)) {
+  await setUserState(from, { 
+    step: "atendimento_encerrado", 
+    temp: {} 
+  });
 
   await sendButtons(
     from,
     "😊 Atendimento encerrado.\n\nSe precisar de algo, estou por aqui 💚",
     [
-      { id: "falar_dra", title: "Falar com a Dra." },
-      { id: "voltar_menu", title: "Menu principal" }
+      { id: "menu_principal", title: "Menu principal" },
+      { id: "falar_dra", title: "Falar com a Dra." }
     ]
   );
 
-  await setUserState(from, { step: "atendimento_encerrado", temp: {} });
-
   return res.status(200).send("session_ended");
+}
+// ---------------- ATENDIMENTO ENCERRADO ----------------
+if (state.step === "atendimento_encerrado") {
+
+  if (lower === "menu_principal") {
+
+    state.step = "menu";
+    await setUserState(from, state);
+
+    await sendMessage(
+      from,
+      "Olá novamente 😊\n\nEscolha uma das opções abaixo:\n\n" +
+      "1️⃣ Serviços odontológicos\n" +
+      "2️⃣ Harmonização facial\n" +
+      "3️⃣ Endereço\n" +
+      "4️⃣ Falar com a Dra."
+    );
+
+    return res.status(200).send("menu_after_end");
+  }
+
+  if (lower === "falar_dra") {
+
+    await sendMessage(
+      from,
+      "Perfeito 💬\n\nVou encaminhar você para falar diretamente com a Dra. Gabriela."
+    );
+
+    return res.status(200).send("redirect_to_dra");
+  }
+
+  return res.status(200).send("waiting_after_end");
 }
 
         // ---------- CONFIRMAÇÃO / CANCELAMENTO DE CONSULTA ----------
@@ -690,6 +724,23 @@ if (state.step === "confirm_slot") {
   const startLocal = new Date(state.temp.selectedSlot.iso).toLocaleString("pt-BR", {
     timeZone: "America/Fortaleza",
   });
+  // ---------- AGENDAMENTO CONCLUÍDO ----------
+if (state.step === "agendamento_concluido") {
+
+  await sendButtons(
+    from,
+    "✅ Seu agendamento foi realizado com sucesso!\n\nPosso ajudar com mais alguma coisa?",
+    [
+      { id: "menu_principal", title: "Menu principal" },
+      { id: "encerrar_atendimento", title: "Encerrar atendimento" }
+    ]
+  );
+
+  await setUserState(from, { step: "pos_agendamento", temp: {} });
+
+  return res.status(200).send("after_booking");
+}
+
 
   // ✅ NOTIFICA ADMIN
   try {
@@ -731,7 +782,7 @@ try {
 
 // 🔒 estado FINAL — aguardando clique do botão
 await setUserState(from, {
-  step: "aguardando_confirmacao",
+  step: "aguardando_concluido",
   temp: {}
 });
 
