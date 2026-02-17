@@ -172,8 +172,10 @@ const numeric = lower.replace(/[^0-9]/g, "");
     let state = (await getUserState(from)) || { step: "menu", temp: {} };
     if (!state.step) state.step = "menu";
     if (!state.temp) state.temp = {};
-// comando de saída GLOBAL
-if (["sair", "encerrar", "finalizar", "cancelar", "0"].includes(lower)) {
+// comando de saída GLOBAL (texto + botão)
+if (
+  ["sair", "encerrar", "finalizar", "cancelar", "0", "encerrar_atendimento"].includes(lower)
+) {
 
   await setUserState(from, { 
     step: "atendimento_encerrado", 
@@ -191,6 +193,7 @@ if (["sair", "encerrar", "finalizar", "cancelar", "0"].includes(lower)) {
 
   return res.status(200).send("session_ended");
 }
+
 // ---------------- ATENDIMENTO ENCERRADO ----------------
 if (state.step === "atendimento_encerrado") {
 
