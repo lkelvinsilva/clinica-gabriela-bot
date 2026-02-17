@@ -536,8 +536,6 @@ if (state.step === "ask_when") {
 
   if (lower === "quando_7") daysAhead = 7;
   if (lower === "quando_15") daysAhead = 15;
-  if (lower === "quando_30") daysAhead = 30;
-
   if (lower === "quando_outro") {
     state.step = "ask_custom_date";
     await setUserState(from, state);
@@ -602,7 +600,6 @@ if (state.step === "ask_custom_date") {
   await sendButtons(from, "Qual período você prefere?", [
     { id: "manha", title: "Manhã" },
     { id: "tarde", title: "Tarde" },
-    { id: "escolher_data", title: "📅 Escolher data" },
     
   ]);
 
