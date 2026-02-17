@@ -3,7 +3,7 @@ import { getUserState, setUserState, isDuplicateMessage } from "../utils/state.j
 import { isTimeSlotFree,createEvent, getAvailableSlots } from "../utils/googleCalendar.js";
 import { isWithinBusinessHours } from "../utils/googleCalendar.js";
 import { appendRow } from "../utils/googleSheets.js";
-import { notifyAdminNewAppointment,sendConfirmationTemplate } from "../utils/whatsapp.js";
+import { notifyAdminNewAppointment } from "../utils/whatsapp.js";
 
 // ---------------------- PARSE DE DATA ----------------------
 function parseCustomDate(text) {
@@ -502,7 +502,7 @@ if (state.step === "odontologia_outro_servico") {
     : null;
 
   if (!period) {
-    await sendMessage(from, "Escolha Manhã, Tarde 😊");
+    await sendMessage(from, "Escolha Manhã, Tarde ou 📅 Escolher data 😊");
     return res.status(200).send("invalid_period");
   }
 
@@ -729,17 +729,6 @@ if (state.step === "confirm_slot") {
     console.error("Erro ao salvar na planilha:", err);
   }
 
-  // ✅ TEMPLATE PARA O PACIENTE
-  try {
-    await sendConfirmationTemplate({
-      to: from,
-      paciente: nome,
-      data: startLocal,
-      procedimento: state.temp.procedimento,
-    });
-  } catch (err) {
-    console.error("⚠️ Erro ao enviar template para paciente:", err);
-  }
 
   // ✅ BOTÕES FINAIS
   await sendButtons(
