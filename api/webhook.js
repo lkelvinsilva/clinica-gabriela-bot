@@ -533,7 +533,6 @@ if (state.step === "odontologia_outro_servico") {
 if (state.step === "ask_when") {
 
   let daysAhead = 0;
-
   if (lower === "quando_7") daysAhead = 7;
   if (lower === "quando_15") daysAhead = 15;
   if (lower === "quando_30") daysAhead = 30;
