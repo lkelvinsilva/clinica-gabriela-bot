@@ -415,6 +415,7 @@ if (state.step === "atendimento_encerrado") {
 
   if (lower === "sim_agendar" || lower === "sim") {
     state.step = "wait_period";
+  state.temp.dateRange = null;
     await setUserState(from, state);
 
     await sendButtons(from, "Qual período você prefere?", [
@@ -567,7 +568,7 @@ if (state.step === "ask_when") {
     await sendButtons(from, "Qual período você prefere?", [
       { id: "manha", title: "Manhã" },
       { id: "tarde", title: "Tarde" },
-      { id: "escolher_data", title: "📅 Escolher data" },
+      
       
     ]);
 
