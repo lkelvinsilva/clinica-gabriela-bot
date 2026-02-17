@@ -699,10 +699,10 @@ if (state.step === "confirm_slot") {
     return res.status(200).send("event_error");
   }
 
-  const startLocal = new Date(state.temp.selectedSlot.iso).toLocaleString("pt-BR", {
-    timeZone: "America/Fortaleza",
-  });
-
+  const startLocal = new Date(state.temp.selectedSlot.iso).toLocaleString(
+    "pt-BR",
+    { timeZone: "America/Fortaleza" }
+  );
 
   // ✅ NOTIFICA ADMIN
   try {
@@ -723,33 +723,45 @@ if (state.step === "confirm_slot") {
       nome,
       state.temp.procedimento,
       state.temp.selectedSlot.iso,
-      event.htmlLink || "",
+      event?.htmlLink || "",
     ]);
   } catch (err) {
     console.error("Erro ao salvar na planilha:", err);
   }
 
-  
-// ✅ TEMPLATE PARA O PACIENTE
-try {
-  await sendConfirmationTemplate({
-    to: from,
-    paciente: nome,
-    data: startLocal,
-    procedimento: state.temp.procedimento,
+  // ✅ TEMPLATE PARA O PACIENTE
+  try {
+    await sendConfirmationTemplate({
+      to: from,
+      paciente: nome,
+      data: startLocal,
+      procedimento: state.temp.procedimento,
+    });
+  } catch (err) {
+    console.error("⚠️ Erro ao enviar template para paciente:", err);
+  }
+
+  // ✅ BOTÕES FINAIS
+  await sendButtons(
+    from,
+    `✅ Seu agendamento foi realizado com sucesso!
+
+📅 Data: ${startLocal}
+
+Posso ajudar com mais alguma coisa?`,
+    [
+      { id: "menu_principal", title: "Menu principal" },
+      { id: "encerrar_atendimento", title: "Encerrar atendimento" },
+    ]
+  );
+
+  await setUserState(from, {
+    step: "pos_agendamento",
+    temp: {},
   });
-} catch (err) {
-  console.error("⚠️ Erro ao enviar template para paciente:", err);
+
+  return res.status(200).send("after_booking");
 }
-
-// 🔒 estado FINAL — aguardando clique do botão
-await setUserState(from, {
-  step: "aguardando_concluido",
-  temp: {}
-});
-
-return res.status(200).send("waiting_confirmation");}
-
 
     // ---------- PERGUNTAR SE QUER MAIS ALGO ----------
       if (state.step === "perguntar_algo_mais") {
