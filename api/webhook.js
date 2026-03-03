@@ -1,9 +1,29 @@
 import axios from "axios";
 import { getUserState, setUserState, isDuplicateMessage } from "../utils/state.js";
 import { isTimeSlotFree,createEvent, getAvailableSlots } from "../utils/googleCalendar.js";
-import { isWithinBusinessHours } from "../utils/googleCalendar.js";
 import { appendRow } from "../utils/googleSheets.js";
 import { notifyAdminNewAppointment } from "../utils/whatsapp.js";
+
+function gerarLinkDra(texto) {
+  const numero = "5585992883317";
+  const mensagem = encodeURIComponent(texto);
+  return `https://wa.me/${numero}?text=${mensagem}`;
+}
+
+// ---------------------- HELPERS DE ESTADO ----------------------
+
+async function resetState(from, step = "menu") {
+  const newState = { step, temp: {} };
+  await setUserState(from, newState);
+  return newState;
+}
+
+async function updateStep(from, state, step) {
+  state.step = step;
+  if (!state.temp) state.temp = {};
+  await setUserState(from, state);
+  return state;
+}
 
 // ---------------------- PARSE DE DATA ----------------------
 function parseCustomDate(text) {
@@ -110,6 +130,13 @@ if (!message) return res.status(200).send("no_message");
 
 const msgId = message.id;
 const from = message.from;
+
+// 🔒 PROTEÇÃO ABSOLUTA CONTRA DUPLICIDADE
+if (await isDuplicateMessage(msgId)) {
+  console.log("Mensagem duplicada ignorada:", msgId);
+  return res.status(200).send("duplicate");
+}
+
 // 🔥 TRATAMENTO PRIORITÁRIO DE BOTÕES 
 if (message?.type === "button" && message.button?.payload) {
   const payload = message.button.payload;
@@ -121,7 +148,7 @@ if (message?.type === "button" && message.button?.payload) {
       "✅ Consulta confirmada com sucesso! Te aguardamos 💚"
     );
 
-    await setUserState(from, { step: "menu", temp: {} });
+    await resetState(from);
 
     return res.status(200).send("confirmed_by_button");
   }
@@ -133,7 +160,7 @@ if (message?.type === "button" && message.button?.payload) {
       "❌ Consulta cancelada. Obrigado por avisar."
     );
 
-    await setUserState(from, { step: "menu", temp: {} });
+    await resetState(from);
 
     return res.status(200).send("cancelled_by_button");
   }
@@ -164,23 +191,15 @@ const text = String(incomingText || "").trim().toLowerCase();
 const lower = text;
 const numeric = lower.replace(/[^0-9]/g, "");
 
-    if (await isDuplicateMessage(msgId)) {
-      console.log("Mensagem duplicada ignorada:", msgId);
-      return res.status(200).send("duplicate");
-    }
-
-    let state = (await getUserState(from)) || { step: "menu", temp: {} };
-    if (!state.step) state.step = "menu";
-    if (!state.temp) state.temp = {};
+    let state = (await getUserState(from)) || {};
+state.step = state.step || "menu";
+state.temp = state.temp || {};
 // comando de saída GLOBAL (texto + botão)
 if (
   ["sair", "encerrar", "finalizar", "cancelar", "0", "encerrar_atendimento"].includes(lower)
 ) {
 
-  await setUserState(from, { 
-    step: "atendimento_encerrado", 
-    temp: {} 
-  });
+  await resetState(from, "atendimento_encerrado");
 
   await sendButtons(
     from,
@@ -199,7 +218,7 @@ if (
   if (lower === "menu_principal") {
 
     state.step = "menu";
-    await setUserState(from, state);
+    await setUserState(from, { step: "menu", temp: {} });
 
     await sendMessage(
       from,
@@ -210,18 +229,12 @@ if (
       "4️⃣ Falar com a Dra."
     );
 
-    return res.status(200).send("menu_after_end");
+    return res.status(200).send("menu_from_button");
   }
 
   if (lower === "falar_dra") {
 
-  const numero = "5585992883317"; // número da Dra.
-  const mensagem = encodeURIComponent(
-    "Olá! Gostaria de falar com você 😊"
-  );
-
-  const link = `https://wa.me/${numero}?text=${mensagem}`;
-
+  const link = gerarLinkDra("Olá! Gostaria de falar com você 😊");
   await sendMessage(
     from,
     `📞 *Perfeito!*\n\n` +
@@ -229,7 +242,7 @@ if (
     `${link}`
   );
 
-  return res.status(200).send("redirect_to_dra");
+  return res.status(200).send("redirect_to_dra_global");
 }
 
 
@@ -268,10 +281,7 @@ if (
 if (state.step === "atendimento_encerrado") {
 
   if (lower === "falar_dra") {
-    const numero = "5585992883317";
-    const mensagem = encodeURIComponent("Olá! Gostaria de falar com você.");
-    const link = `https://wa.me/${numero}?text=${mensagem}`;
-
+    const link = gerarLinkDra("Olá! Gostaria de falar com você.");
     await sendMessage(
       from,
       `📞 Vou avisar a Dra. Gabriela agora mesmo 💚
@@ -283,8 +293,7 @@ if (state.step === "atendimento_encerrado") {
   }
 
   if (lower === "voltar_menu" || lower === "menu") {
-    state.step = "menu";
-    await setUserState(from, state);
+    await updateStep(from, state, "menu");
 
     await sendMessage(
       from,
@@ -302,8 +311,7 @@ if (state.step === "atendimento_encerrado") {
     if (state.step === "menu") {
       // opção 1 — odontologia (sub-menu)
       if (lower === "1" || numeric === "1") {
-        state.step = "odontologia_menu";
-        await setUserState(from, state);
+        await updateStep(from, state, "odontologia_menu");
 
         await sendMessage(
           from,
@@ -361,9 +369,7 @@ if (state.step === "atendimento_encerrado") {
 
       // opção 4 — falar com a Dra.
       if (lower === "4" || numeric === "4") {
-        const numero = "5585992883317";
-        const mensagem = encodeURIComponent("Olá! Gostaria de falar com você.");
-        const link = `https://wa.me/${numero}?text=${mensagem}`;
+        const link = gerarLinkDra("Olá! Gostaria de falar com você.");
 
         await sendMessage(
           from,
@@ -435,9 +441,9 @@ if (state.step === "atendimento_encerrado") {
   if (state.step === "odontologia_confirmar_agendamento") {
 
   if (lower === "sim_agendar" || lower === "sim") {
-    state.step = "wait_period";
+    await updateStep(from, state, "wait_period");
   state.temp.dateRange = null;
-    await setUserState(from, state);
+    
 
     await sendButtons(from, "Qual período você prefere?", [
       { id: "manha", title: "Manhã" },
@@ -581,8 +587,7 @@ if (state.step === "ask_when") {
       end: end.toISOString(),
     };
 
-    state.step = "wait_period";
-    await setUserState(from, state);
+    await updateStep(from, state, "wait_period");
 
     await sendButtons(from, "Qual período você prefere?", [
       { id: "manha", title: "Manhã" },
@@ -615,8 +620,7 @@ if (state.step === "ask_custom_date") {
     end: end.toISOString(),
   };
 
-  state.step = "wait_period";
-  await setUserState(from, state);
+  await updateStep(from, state, "wait_period");
 
   await sendButtons(from, "Qual período você prefere?", [
     { id: "manha", title: "Manhã" },
@@ -639,7 +643,8 @@ if (state.step === "choose_slot") {
   state.temp.selectedSlot = slot;
   if (!state.temp.selectedSlot?.iso) {
   await sendMessage(from, "❌ Horário inválido. Vamos começar novamente.");
-  await setUserState(from, { step: "menu", temp: {} });
+  state.step = "menu";
+await setUserState(from, state);
   return res.status(200).send("slot_error");
 }
 
@@ -661,6 +666,12 @@ if (state.step === "choose_slot") {
 if (state.step === "confirm_slot") {
 
   if (lower === "confirmar") {
+    if (state.temp?.bookingLocked) {
+  return res.status(200).send("already_processing");
+}
+
+state.temp.bookingLocked = true;
+await setUserState(from, state);
     state.step = "ask_name";
     await setUserState(from, state);
     await sendMessage(from, "Perfeito! Agora me diga seu *Nome Completo* 😊");
@@ -692,6 +703,23 @@ if (state.step === "confirm_slot") {
   }
 
   state.temp.name = nome;
+
+// 🔒 Sessão válida?
+if (!state.temp?.selectedSlot?.iso) {
+  await sendMessage(from, "⚠️ Sua sessão expirou. Vamos começar novamente 😊");
+  await setUserState(from, { step: "menu", temp: {} });
+  return res.status(200).send("session_expired");
+}
+
+// 🔒 Horário ainda livre?
+const isFree = await isTimeSlotFree(state.temp.selectedSlot.iso);
+
+if (!isFree) {
+  await sendMessage(from, "⚠️ Esse horário acabou de ser reservado. Vou buscar outro 😊");
+  state.step = "wait_period";
+  await setUserState(from, state);
+  return res.status(200).send("slot_taken");
+}
 
   let event;
   try {
@@ -753,12 +781,7 @@ Posso ajudar com mais alguma coisa?`,
       { id: "falar_dra", title: "Falar com a Dra." },
     ]
   );
-
-  await setUserState(from, {
-    step: "pos_agendamento",
-    temp: {},
-  });
-
+  await resetState(from, "pos_agendamento");
   return res.status(200).send("after_booking");
 }
 
@@ -795,12 +818,9 @@ Posso ajudar com mais alguma coisa?`,
 if (state.step === "pos_agendamento") {
 
   if (lower === "falar_dra") {
-    const numero = "5585992883317";
-    const mensagem = encodeURIComponent(
-      "Olá! Acabei de agendar uma consulta pelo WhatsApp 😊"
-    );
-    const link = `https://wa.me/${numero}?text=${mensagem}`;
-
+    const link = gerarLinkDra(
+  "Olá! Acabei de agendar uma consulta pelo WhatsApp 😊"
+);
     await sendMessage(
       from,
       `📞 Perfeito!\n\n👉 Clique no link para falar diretamente com a Dra.:\n\n${link}`
@@ -864,9 +884,7 @@ if (state.step === "pos_agendamento") {
         return res.status(200).send("invalid_proc");
       }
 
-      const numeroPessoal = "5585992883317";
-      const mensagem = encodeURIComponent(`Olá! Tenho interesse em: ${escolhido}`);
-      const link = `https://wa.me/${numeroPessoal}?text=${mensagem}`;
+      const link = gerarLinkDra(`Olá! Tenho interesse em: ${escolhido}`);
 
       await sendMessage(
         from,
